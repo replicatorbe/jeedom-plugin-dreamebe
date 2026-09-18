@@ -112,6 +112,37 @@ foreach ($staticHooks as $hook) {
     }
 }
 
+/* ------------------------------------------------------------------ 6 ---
+ * Aucun nom de commande ne doit contenir d'apostrophe.
+ *
+ * cmd::setName() du coeur les RETIRE silencieusement : « Niveau d'aspiration »
+ * devient « Niveau daspiration » sur le tableau de bord de l'utilisateur, et
+ * rien n'en avertit. Les noms de commandes servent aussi à désigner une
+ * commande dans un scénario, ce qui explique la restriction — mais elle ne se
+ * découvre qu'en lisant la valeur enregistrée. */
+preg_match_all('/addCmd\(\s*\x27[^\x27]*\x27\s*,\s*\x27((?:[^\x27\\\\]|\\\\.)*)\x27/', $source, $m);
+$labels = $m[1];
+$spec = file_get_contents(__DIR__ . '/../core/class/dreamebeSpec.class.php');
+preg_match_all('/=> array\(\x27[^\x27]+\x27,\s*\x27((?:[^\x27\\\\]|\\\\.)*)\x27/', $spec, $m2);
+$labels = array_merge($labels, $m2[1]);
+preg_match_all('/array\(\x27[^\x27]+\x27, \x27((?:[^\x27\\\\]|\\\\.)*)\x27/', $source, $m3);
+$labels = array_merge($labels, $m3[1]);
+/* Dix caractères, pas seulement l'apostrophe : cleanComponanteName()
+ * (core/php/utils.inc.php) retire & # ] [ % \ / ' " * — et écrase au passage
+ * les espaces multiples, ce qui laisse un trou là où le caractère se trouvait. */
+$interdits = array("\\'" => "'", '&' => '&', '#' => '#', ']' => ']', '[' => '[',
+                   '%' => '%', '/' => '/', '"' => '"', '*' => '*');
+foreach (array_unique($labels) as $label) {
+    foreach ($interdits as $motif => $caractere) {
+        if (strpos($label, $motif) !== false) {
+            $problems[] = 'Nom de commande contenant « ' . $caractere . ' » : '
+                . str_replace("\\'", "'", $label)
+                . ' — cmd::setName() le retirera sans prévenir.';
+            break;
+        }
+    }
+}
+
 /* ---------------------------------------------------------------- BILAN --- */
 if (empty($problems)) {
     echo "Contrôles du coeur : aucun problème.\n";

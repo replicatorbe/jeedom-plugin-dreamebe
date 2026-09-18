@@ -127,7 +127,7 @@ class dreamebeSpec {
         16 => array('sensor',      'Capteurs',               1, 2, 'h'),
         17 => array('tank_filter', 'Filtre du réservoir',    1, 2, 'h'),
         18 => array('mop_pad',     'Serpillière',            1, 2, 'h'),
-        19 => array('silver_ion',  'Module ions d\'argent',  2, 1, 'j'),
+        19 => array('silver_ion',  'Module ions argent',  2, 1, 'j'),
         20 => array('detergent',   'Détergent',              1, 2, 'j'),
         /* Ceux-ci n'existent que sur une partie de la gamme — la raclette sur
          * les modèles à rouleau, le module désodorisant et les roues sur les
@@ -360,6 +360,54 @@ class dreamebeSpec {
 
     public static $mopWashLevel = array(
         0 => 'Économie d\'eau', 1 => 'Quotidien', 2 => 'Profond',
+    );
+
+    /*
+     * Ce que le robot fait des tapis. Les huit valeurs sont celles de
+     * l'implémentation de référence ; toutes n'existent pas sur tous les
+     * modèles, et une valeur absente de la table s'affiche telle quelle plutôt
+     * que d'être devinée.
+     */
+    public static $carpetCleaning = array(
+        0 => 'Non défini', 1 => 'Évitement', 2 => 'Adaptation',
+        3 => 'Retrait de la serpillière', 4 => 'Adaptation sans détour',
+        5 => 'Aspiration et lavage', 6 => 'Ignorer', 7 => 'Traverser',
+    );
+
+    public static $autoDetergent = array(
+        0 => 'Désactivé', 1 => 'Activé', 2 => 'Absent',
+    );
+
+    public static $hotWaterStatus = array(
+        0 => 'Désactivée', 1 => 'Activée',
+    );
+
+    /*
+     * La NATURE de la tâche en cours, à ne pas confondre avec son avancement :
+     * « nettoyage programmé », « nettoyage de bord renforcé »… C'est ce qui
+     * permet à un scénario de distinguer un nettoyage lancé à la main d'un
+     * nettoyage déclenché par le robot lui-même.
+     */
+    public static $taskTypes = array(
+        0 => 'Aucune', 1 => 'Nettoyage standard', 2 => 'Nettoyage standard en pause',
+        3 => 'Nettoyage personnalisé', 4 => 'Nettoyage personnalisé en pause',
+        5 => 'Raccourci', 6 => 'Raccourci en pause',
+        7 => 'Nettoyage programmé', 8 => 'Nettoyage programmé en pause',
+        9 => 'Nettoyage intelligent', 10 => 'Nettoyage intelligent en pause',
+        11 => 'Nettoyage partiel', 12 => 'Nettoyage partiel en pause',
+        13 => 'Nettoyage sur appel', 14 => 'Nettoyage sur appel en pause',
+        15 => 'Traitement d\'une tache', 16 => 'Traitement d\'une tache en pause',
+        17 => 'Nettoyage de bord renforcé', 18 => 'Compactage des cheveux',
+        19 => 'Nettoyage des grosses particules', 20 => 'Traitement intensif d\'une tache',
+        21 => 'Traitement des taches', 22 => 'Premier nettoyage en profondeur',
+        23 => 'Premier nettoyage en profondeur en pause', 24 => 'Chauffage de la serpillière',
+        25 => 'Nettoyage après cartographie', 26 => 'Nettoyage des fines particules',
+        30 => 'Changement de serpillière', 31 => 'Changement de serpillière en pause',
+        32 => 'Entretien du sol', 33 => 'Entretien du sol en pause',
+        34 => 'Rangement d\'objets', 35 => 'Rangement d\'objets en pause',
+        36 => 'Nettoyage intensif des cheveux', 37 => 'Manipulation d\'accessoire',
+        38 => 'Nettoyage à vitesse accrue', 39 => 'Nettoyage sous pression',
+        40 => 'Nettoyage vapeur', 41 => 'Nettoyage vapeur en pause',
     );
 
     public static $waterTemperature = array(

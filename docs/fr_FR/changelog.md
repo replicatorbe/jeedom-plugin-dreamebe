@@ -42,9 +42,16 @@ protocole et ne sont pas gérés.
 - Nettoyage par pièce, de deux façons : une commande **Nettoyer : *pièce*** par
   pièce de la carte, et une commande générique qui accepte des identifiants ou
   des noms séparés par des virgules.
+- « Nettoyer des pièces » accepte deux paramètres après la liste, séparés par une
+  barre verticale puisque les noms de pièces contiennent déjà des virgules :
+  `Cuisine, Salon | 2` y passe deux fois, `Cuisine | 2 | 3` deux fois en Turbo.
 - Nettoyage par zone, en millimètres dans le repère de la carte, avec un nombre
   de passages facultatif. Une zone trop petite est refusée avec une explication,
   là où le robot la refuserait sans rien dire.
+- Six réglages secondaires quand le robot les expose : volume des annonces (de 0
+  à 100), « Ne pas déranger », température de l'eau, niveau de lavage, gestion
+  des tapis et détergent automatique. Chacun met à jour l'information qui lui
+  fait face sans attendre le prochain cycle lent.
 
 **Suivre**
 
@@ -56,6 +63,17 @@ protocole et ne sont pas gérés.
   remise à zéro par consommable.
 - Date, durée et surface du dernier nettoyage, reconstituées depuis les
   événements que le cloud archive — il n'existe pas d'endpoint d'historique.
+- Quinze propriétés secondaires quand le robot y répond : progression du séchage,
+  type de tâche, localisation, disponibilité et état de l'auto-vidage, volume des
+  annonces, « Ne pas déranger », température de l'eau, niveau de lavage, durée de
+  séchage, gestion des tapis, détergent automatique, eau chaude, état du
+  détergent et date du premier nettoyage.
+- Une commande « Pièces » qui rend la liste des noms de pièces séparés par des
+  virgules, pour qu'un scénario les énumère sans les écrire en dur.
+- Des types génériques Jeedom sur les commandes principales — batterie, batterie
+  en charge, vitesse de ventilateur et son état, retour à la base et état de la
+  base — que les widgets, les résumés d'objet et les assistants vocaux savent
+  reconnaître.
 - Une page Santé qui dit si le compte est renseigné, jusqu'à quand la session est
   ouverte et quand chaque robot a été lu pour la dernière fois.
 
@@ -78,6 +96,10 @@ protocole et ne sont pas gérés.
   déconnexion : le plugin se rabat sur l'image que le cloud garde de la machine,
   et une valeur absente n'écrase jamais la précédente.
 - Jetons, mots de passe et en-têtes d'autorisation sont masqués dans le journal.
+- Aucun nom de commande ne contient d'apostrophe : `cmd::setName()` les retire
+  sans prévenir, ce qui affichait « Niveau daspiration ». Onze libellés ont été
+  reformulés, et le jeu d'essai refuse désormais tout nom qui en contiendrait.
+  Les identifiants internes n'ont pas changé.
 
 Protocole relevé sur Tasshack/dreame-vacuum, TA2k/ioBroker.dreame et
 sandraschi/dreame-mcp, tous trois sous licence MIT. Aucun code n'en a été

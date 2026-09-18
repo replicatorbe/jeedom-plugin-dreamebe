@@ -43,6 +43,11 @@ class dreamebe extends eqLogic {
      * voir pruneCommands(). */
     private $_expected = array();
 
+    /* Les noms déjà attribués pendant la passe de création. Jeedom impose des
+     * noms de commande uniques par équipement, et la violation ne se solde pas
+     * par une commande manquante mais par l'échec de TOUT l'enregistrement. */
+    private $_usedNames = array();
+
     /* ------------------------------------------------------------------ *
      * Client du cloud
      * ------------------------------------------------------------------ */
@@ -219,6 +224,63 @@ class dreamebe extends eqLogic {
             'bind_domain' => $this->getConfiguration('bind_domain', ''),
         );
     }
+
+    /*
+     * Les propriétés secondaires, exposées par table plutôt qu'à la main.
+     *
+     * Elles se ressemblent toutes — lire une valeur, lui coller un libellé, en
+     * faire une commande — et les écrire une par une aurait produit quatorze
+     * blocs quasi identiques dans createCommands() et autant dans applyValues().
+     * La table les décrit une fois ; le code qui les traite tient en vingt
+     * lignes, et en ajouter une de plus tient en une ligne.
+     *
+     *   propriété => array(identifiant, libellé, rendu, complément, ordre, rapide)
+     *
+     * « rapide » distingue ce qui bouge pendant un nettoyage — et doit donc être
+     * relu à chaque cycle — de ce qui est un réglage, relu avec l'entretien.
+     */
+    public static $extras = array(
+        'drying_progress'   => array('sechage_progression', 'Progression du séchage', 'numeric', '%', 43, true),
+        'task_type'         => array('type_tache', 'Type de tâche', 'enum', 'taskTypes', 44, true),
+        'relocation'        => array('localisation', 'Localisation', 'enum', 'relocation', 45, true),
+        'dust_collection'   => array('vidage_disponible', 'Auto-vidage disponible', 'enum', 'dustCollection', 46, true),
+        'auto_empty_status' => array('vidage_etat', 'Auto-vidage en cours', 'enum', 'autoEmptyStatus', 47, true),
+
+        'volume'            => array('volume', 'Volume des annonces', 'numeric', '%', 50, false),
+        'dnd'               => array('dnd', 'Ne pas déranger', 'binary', null, 51, false),
+        'water_temperature' => array('temperature_eau', 'Température eau', 'enum', 'waterTemperature', 52, false),
+        'mop_wash_level'    => array('niveau_lavage', 'Niveau de lavage', 'enum', 'mopWashLevel', 53, false),
+        'drying_time'       => array('duree_sechage', 'Durée de séchage', 'numeric', 'h', 54, false),
+        'carpet_cleaning'   => array('tapis', 'Gestion des tapis', 'enum', 'carpetCleaning', 55, false),
+        'auto_detergent'    => array('detergent_auto', 'Détergent automatique', 'enum', 'autoDetergent', 56, false),
+        'hot_water_status'  => array('eau_chaude', 'Eau chaude', 'enum', 'hotWaterStatus', 57, false),
+        'detergent_status'  => array('detergent', 'État du détergent', 'enum', 'detergentStatus', 58, false),
+        'first_cleaning'    => array('premier_nettoyage', 'Premier nettoyage', 'date', null, 59, false),
+    );
+
+    /*
+     * Celles de ces propriétés qui se règlent, et comment.
+     *
+     *   propriété => array(identifiant, libellé, sous-type, choix, ordre, transtypage)
+     *
+     * Le transtypage n'est pas une coquetterie : le robot rend « ne pas
+     * déranger » sous forme de booléen, pas d'entier, et lui réécrire 1 là où il
+     * attend true n'a aucun effet visible — la commande semble réussir et rien
+     * ne change.
+     */
+    public static $extraActions = array(
+        'volume'            => array('regler_volume', 'Régler le volume', 'slider', null, 90, 'int'),
+        'dnd'               => array('regler_dnd', 'Régler « Ne pas déranger »', 'select',
+                                     '0|Désactivé;1|Activé', 91, 'bool'),
+        'water_temperature' => array('regler_temperature', 'Régler la température eau', 'select',
+                                     '0|Normale;1|Tiède;2|Chaude;3|Très chaude;4|Maximale', 92, 'int'),
+        'mop_wash_level'    => array('regler_niveau_lavage', 'Régler le niveau de lavage', 'select',
+                                     '0|Économie d\'eau;1|Quotidien;2|Profond', 93, 'int'),
+        'carpet_cleaning'   => array('regler_tapis', 'Régler la gestion des tapis', 'select',
+                                     '0|Non défini;1|Évitement;2|Adaptation;3|Retrait de la serpillière', 94, 'int'),
+        'auto_detergent'    => array('regler_detergent', 'Régler le détergent automatique', 'select',
+                                     '0|Désactivé;1|Activé', 95, 'int'),
+    );
 
     /* ------------------------------------------------------------------ *
      * Libellés
@@ -490,6 +552,12 @@ class dreamebe extends eqLogic {
             $wanted[] = 'water_volume';
         }
 
+        foreach (self::$extras as $name => $extra) {
+            if ($extra[5]) {
+                $wanted[] = $name;
+            }
+        }
+
         $props = array();
         foreach ($wanted as $name) {
             if ($this->supported($name) === false) {
@@ -657,7 +725,47 @@ class dreamebe extends eqLogic {
             $this->checkAndUpdateCmd('serpillere', ((int) $mop === 1) ? 1 : 0);
         }
 
+        $this->applyExtras($_props, $_values);
         $this->refreshWidget();
+    }
+
+    /*
+     * Pose les propriétés secondaires décrites par la table.
+     *
+     * Une valeur absente du relevé n'écrase rien : c'est la même règle que pour
+     * le reste, et elle vaut ici doublement, ces propriétés n'étant relues qu'au
+     * cycle lent pour la plupart.
+     */
+    public function applyExtras($_props, $_values) {
+        foreach (self::$extras as $name => $extra) {
+            if (!isset($_props[$name])) {
+                continue;
+            }
+            $key = $_props[$name][0] . '.' . $_props[$name][1];
+            if (!array_key_exists($key, $_values)) {
+                continue;
+            }
+            $value = $_values[$key];
+
+            switch ($extra[2]) {
+                case 'enum':
+                    $table = $extra[3];
+                    $this->checkAndUpdateCmd($extra[0], self::label(dreamebeSpec::$$table, $value));
+                    break;
+                case 'binary':
+                    /* Le robot rend tantôt un booléen, tantôt un entier. */
+                    $this->checkAndUpdateCmd($extra[0], ($value === true || (int) $value === 1) ? 1 : 0);
+                    break;
+                case 'date':
+                    $stamp = (int) $value;
+                    if ($stamp > 0) {
+                        $this->checkAndUpdateCmd($extra[0], date('d/m/Y', $stamp));
+                    }
+                    break;
+                default:
+                    $this->checkAndUpdateCmd($extra[0], (int) $value);
+            }
+        }
     }
 
     /*
@@ -676,6 +784,7 @@ class dreamebe extends eqLogic {
             try {
                 $this->refreshConsumables();
                 $this->refreshStatistics();
+                $this->refreshSettings();
             } catch (Throwable $e) {
                 log::add('dreamebe', 'info', $this->getHumanName()
                          . ' : entretien et statistiques non relus (' . $e->getMessage() . ')');
@@ -731,6 +840,30 @@ class dreamebe extends eqLogic {
                 }
             }
         }
+    }
+
+    /*
+     * Les réglages du robot : volume, températures, gestion des tapis…
+     *
+     * Ils ne bougent que lorsque quelqu'un les change, dans l'application ou
+     * depuis Jeedom. Les relire à chaque cycle ne produirait que du trafic pour
+     * un chiffre qui ne varie pas d'une semaine à l'autre.
+     */
+    public function refreshSettings() {
+        $props = array();
+        foreach (self::$extras as $name => $extra) {
+            if ($extra[5] || $this->supported($name) !== true) {
+                continue;
+            }
+            if (isset(dreamebeSpec::$properties[$name])) {
+                $props[$name] = dreamebeSpec::$properties[$name];
+            }
+        }
+        if (empty($props)) {
+            return;
+        }
+        $values = self::api()->getProperties($this->device(), array_values($props));
+        $this->applyExtras($props, $values);
     }
 
     public function refreshStatistics() {
@@ -1320,6 +1453,37 @@ class dreamebe extends eqLogic {
         $this->checkAndUpdateCmd('mode_texte', self::label(dreamebeSpec::$cleaningModes, $mode));
     }
 
+    /*
+     * Règle une des propriétés secondaires.
+     *
+     * Le transtypage compte : le robot rend « ne pas déranger » en booléen, et
+     * lui réécrire 1 là où il attend true ne produit rien de visible — la
+     * commande semble réussir, et le cycle suivant réaffiche l'ancienne valeur.
+     */
+    public function commandSetExtra($_name, $_value) {
+        if (!isset(self::$extraActions[$_name])) {
+            throw new Exception(__('Réglage inconnu :', __FILE__) . ' ' . $_name);
+        }
+        if ($_value === null || $_value === '') {
+            throw new Exception(__('Indiquez une valeur pour ce réglage.', __FILE__));
+        }
+        $action = self::$extraActions[$_name];
+        $extra = self::$extras[$_name];
+        $prop = dreamebeSpec::$properties[$_name];
+        $value = ($action[5] === 'bool') ? ((int) $_value === 1) : (int) $_value;
+
+        $this->dispatch(function () use ($prop, $value) {
+            return self::api()->setProperty($this->device(), $prop[0], $prop[1], $value);
+        }, 'set_' . $_name);
+
+        /* Rendre la main avec l'ancienne valeur affichée donnerait l'impression
+         * que l'ordre n'est pas passé, jusqu'au prochain cycle lent — soit une
+         * demi-heure. */
+        $this->applyExtras(array($_name => $prop),
+                           array($prop[0] . '.' . $prop[1] => $value));
+        return true;
+    }
+
     public function commandResetConsumable($_siid) {
         $action = dreamebeSpec::resetAction($_siid);
         $result = $this->dispatch(function () use ($action) {
@@ -1352,6 +1516,7 @@ class dreamebe extends eqLogic {
 
     public function createCommands() {
         $this->_expected = array();
+        $this->_usedNames = array();
 
         /*
          * Tant que le robot n'a pas été sondé, on ne crée que ce qui vaut pour
@@ -1368,7 +1533,8 @@ class dreamebe extends eqLogic {
         $this->addCmd('en_ligne', 'En ligne', 'info', 'binary', array('order' => 4));
         $this->addCmd('batterie', 'Batterie', 'info', 'numeric',
                       array('order' => 5, 'unite' => '%', 'generic' => 'BATTERY', 'historize' => 1));
-        $this->addCmd('en_charge', 'En charge', 'info', 'binary', array('order' => 6));
+        $this->addCmd('en_charge', 'En charge', 'info', 'binary',
+                      array('order' => 6, 'generic' => 'BATTERY_CHARGING'));
         $this->addCmd('charge', 'État de charge', 'info', 'string', array('order' => 7, 'visible' => 0));
         $this->addCmd('erreur', 'Erreur', 'info', 'string', array('order' => 8));
         $this->addCmd('code_erreur', 'Code erreur', 'info', 'numeric', array('order' => 9, 'visible' => 0));
@@ -1391,8 +1557,8 @@ class dreamebe extends eqLogic {
          * dictionnaire plat — une même chaîne française ne peut pas s'y
          * traduire deux fois. Le nom du réglage et celui de l'état doivent donc
          * différer, faute de quoi l'un des deux serait faux en anglais. */
-        $this->addCmd('aspiration', 'Niveau d\'aspiration', 'info', 'numeric',
-                      array('order' => 30, 'visible' => 0));
+        $this->addCmd('aspiration', 'Niveau aspiration', 'info', 'numeric',
+                      array('order' => 30, 'visible' => 0, 'generic' => 'FAN_SPEED_STATE'));
         $this->addCmd('aspiration_texte', 'Aspiration (texte)', 'info', 'string', array('order' => 31));
 
         if ($probed && $this->hasWashBase()) {
@@ -1404,14 +1570,15 @@ class dreamebe extends eqLogic {
                 $this->addCmd('humidite_niveau', 'Humidité (niveau fin)', 'info', 'numeric',
                               array('order' => 35, 'visible' => 0));
             }
-            $this->addCmd('station', 'Station', 'info', 'string', array('order' => 36));
+            $this->addCmd('station', 'Station', 'info', 'string',
+                          array('order' => 36, 'generic' => 'DOCK_STATE'));
             $this->addCmd('alerte_eau', 'Alerte eau', 'info', 'string', array('order' => 37));
-            $this->addCmd('reservoir_propre', 'Réservoir d\'eau propre', 'info', 'string', array('order' => 38));
-            $this->addCmd('reservoir_sale', 'Réservoir d\'eau sale', 'info', 'string', array('order' => 39));
+            $this->addCmd('reservoir_propre', 'Réservoir eau propre', 'info', 'string', array('order' => 38));
+            $this->addCmd('reservoir_sale', 'Réservoir eau sale', 'info', 'string', array('order' => 39));
             $this->addCmd('sac', 'Sac à poussière', 'info', 'string', array('order' => 40));
         } elseif ($probed) {
-            $this->addCmd('eau', 'Niveau d\'eau', 'info', 'numeric', array('order' => 32, 'visible' => 0));
-            $this->addCmd('eau_texte', 'Niveau d\'eau (texte)', 'info', 'string', array('order' => 33));
+            $this->addCmd('eau', 'Niveau eau', 'info', 'numeric', array('order' => 32, 'visible' => 0));
+            $this->addCmd('eau_texte', 'Niveau eau (texte)', 'info', 'string', array('order' => 33));
         }
         $this->addCmd('reservoir', 'Réservoir', 'info', 'string', array('order' => 41, 'visible' => 0));
         $this->addCmd('serpillere', 'Serpillière posée', 'info', 'binary', array('order' => 42));
@@ -1424,15 +1591,17 @@ class dreamebe extends eqLogic {
         /* Même raison : « Retour à la station » est un état du robot. L'ordre,
          * lui, se nomme à l'infinitif — ce qui est de toute façon la bonne
          * façon de nommer un bouton. */
-        $this->addCmd('retour_station', 'Retourner à la station', 'action', 'other', array('order' => 54));
+        $this->addCmd('retour_station', 'Retourner à la station', 'action', 'other',
+                      array('order' => 54, 'generic' => 'DOCK'));
         $this->addCmd('localiser', 'Localiser', 'action', 'other', array('order' => 55));
-        $this->addCmd('acquitter', 'Acquitter l\'alerte', 'action', 'other', array('order' => 56));
+        $this->addCmd('acquitter', 'Acquitter le message', 'action', 'other', array('order' => 56));
 
-        $this->addCmd('regler_aspiration', 'Régler l\'aspiration', 'action', 'select',
+        $this->addCmd('regler_aspiration', 'Régler la puissance', 'action', 'select',
                       array('order' => 60, 'value' => $this->cmdId('aspiration'),
+                            'generic' => 'FAN_SPEED',
                             'listValue' => __('0|Silencieux;1|Standard;2|Fort;3|Turbo', __FILE__)));
         if ($probed && $this->hasWashBase()) {
-            $this->addCmd('regler_humidite', 'Régler l\'humidité', 'action', 'select',
+            $this->addCmd('regler_humidite', 'Régler le taux humidité', 'action', 'select',
                           array('order' => 61, 'value' => $this->cmdId('humidite'),
                                 'listValue' => __('1|Peu humide;2|Humide;3|Très humide', __FILE__)));
             $this->addCmd('regler_mode', 'Régler le mode', 'action', 'select',
@@ -1442,7 +1611,7 @@ class dreamebe extends eqLogic {
             $this->addCmd('secher_serpillere', 'Sécher la serpillière', 'action', 'other', array('order' => 64));
             $this->addCmd('arreter_sechage', 'Arrêter le séchage', 'action', 'other', array('order' => 65));
         } elseif ($probed) {
-            $this->addCmd('regler_eau', 'Régler le niveau d\'eau', 'action', 'select',
+            $this->addCmd('regler_eau', 'Régler le débit eau', 'action', 'select',
                           array('order' => 61, 'value' => $this->cmdId('eau'),
                                 'listValue' => __('1|Faible;2|Moyen;3|Élevé', __FILE__)));
         }
@@ -1463,11 +1632,19 @@ class dreamebe extends eqLogic {
             if ($this->supported($consumable[0] . '_wear') !== true) {
                 continue;
             }
-            $this->addCmd($consumable[0] . '_wear', $consumable[1] . ' restant', 'info', 'numeric',
+            /*
+             * Le nom du consommable est traduit à part, puis composé : un
+             * libellé assemblé par concaténation ne traverse jamais __() en
+             * entier, et resterait donc en français dans une interface
+             * anglaise, quoi qu'on mette dans le catalogue.
+             */
+            $libelle = __($consumable[1], __FILE__);
+            $this->addCmd($consumable[0] . '_wear', $libelle, 'info', 'numeric',
                           array('order' => $order++, 'unite' => '%', 'historize' => 1));
-            $this->addCmd($consumable[0] . '_left', $consumable[1] . ' (durée)', 'info', 'numeric',
+            $this->addCmd($consumable[0] . '_left', sprintf(__('%s (durée)', __FILE__), $libelle),
+                          'info', 'numeric',
                           array('order' => $order++, 'unite' => $consumable[4], 'visible' => 0));
-            $this->addCmd('raz_' . $consumable[0], 'Remettre à zéro : ' . $consumable[1],
+            $this->addCmd('raz_' . $consumable[0], sprintf(__('Remettre à zéro : %s', __FILE__), $libelle),
                           'action', 'other', array('order' => $order++, 'visible' => 0));
         }
 
@@ -1501,6 +1678,40 @@ class dreamebe extends eqLogic {
             $this->addCmd('carte', 'Carte', 'info', 'string',
                           array('order' => 133, 'template' => 'dreamebe::dreamebeMap'));
         }
+
+        /* --- Propriétés secondaires ------------------------------------ */
+        foreach (self::$extras as $name => $extra) {
+            if ($this->supported($name) !== true) {
+                continue;
+            }
+            $options = array('order' => $extra[4]);
+            /* Une énumération et une date s'affichent en toutes lettres ; le
+             * reste garde son type, pour rester utilisable dans un calcul. */
+            $subType = in_array($extra[2], array('enum', 'date'), true) ? 'string' : $extra[2];
+            if ($extra[2] === 'numeric' && $extra[3] !== null) {
+                $options['unite'] = $extra[3];
+            }
+            $this->addCmd($extra[0], $extra[1], 'info', $subType, $options);
+        }
+
+        foreach (self::$extraActions as $name => $action) {
+            if ($this->supported($name) !== true) {
+                continue;
+            }
+            $options = array('order' => $action[4], 'value' => $this->cmdId(self::$extras[$name][0]));
+            if ($action[3] !== null) {
+                $options['listValue'] = __($action[3], __FILE__);
+            }
+            if ($action[2] === 'slider') {
+                $options['min'] = 0;
+                $options['max'] = 100;
+            }
+            $this->addCmd($action[0], $action[1], 'action', $action[2], $options);
+        }
+
+        /* La liste des pièces, en clair. Un scénario peut ainsi les énumérer
+         * sans que leurs noms soient écrits en dur dans son code. */
+        $this->addCmd('pieces', 'Pièces', 'info', 'string', array('order' => 199));
 
         $this->createRoomCommands();
         $this->pruneCommands();
@@ -1601,6 +1812,15 @@ class dreamebe extends eqLogic {
             $this->addCmd('room::' . $room['id'], $nom, 'action', 'other', array('order' => $order++));
         }
 
+        /* La liste en clair, posée ici plutôt qu'à la relecture de la carte :
+         * c'est le seul endroit traversé dans tous les cas, y compris à la
+         * création des commandes sur des pièces déjà connues. */
+        $noms = array();
+        foreach ($rooms as $room) {
+            $noms[] = $room['name'];
+        }
+        $this->checkAndUpdateCmd('pieces', implode(', ', $noms));
+
         /* Une pièce fusionnée ou supprimée dans l'application laisserait une
          * commande qui échouerait en silence. */
         foreach ($this->getCmd('action') as $cmd) {
@@ -1638,7 +1858,26 @@ class dreamebe extends eqLogic {
             $cmd->setIsVisible(isset($_options['visible']) ? $_options['visible'] : 1);
             $cmd->setIsHistorized(isset($_options['historize']) ? $_options['historize'] : 0);
         }
-        $cmd->setName(__($_name, __FILE__));
+        /*
+         * Deux commandes ne peuvent pas porter le même nom sur un équipement :
+         * la contrainte est au niveau de la base, et l'enregistrement échoue en
+         * entier — pas seulement la commande fautive. Le symptôme, côté
+         * utilisateur, est une page qui se rafraîchit et une saisie perdue.
+         *
+         * Plutôt que de compter sur la vigilance à chaque ajout dans les tables,
+         * on dédoublonne ici. C'est arrivé : « Ne pas déranger » désignait à la
+         * fois l'état et son réglage.
+         */
+        $name = __($_name, __FILE__);
+        if (isset($this->_usedNames[$name]) && $this->_usedNames[$name] !== $_logicalId) {
+            $suffixe = 2;
+            while (isset($this->_usedNames[$name . ' ' . $suffixe])) {
+                $suffixe++;
+            }
+            $name = $name . ' ' . $suffixe;
+        }
+        $this->_usedNames[$name] = $_logicalId;
+        $cmd->setName($name);
         $cmd->setType($_type);
         $cmd->setSubType($_subType);
         if (isset($_options['order'])) {
@@ -1655,6 +1894,12 @@ class dreamebe extends eqLogic {
         }
         if (isset($_options['listValue'])) {
             $cmd->setConfiguration('listValue', $_options['listValue']);
+        }
+        if (isset($_options['min'])) {
+            $cmd->setConfiguration('minValue', $_options['min']);
+        }
+        if (isset($_options['max'])) {
+            $cmd->setConfiguration('maxValue', $_options['max']);
         }
         /* La marque qui distingue nos commandes de celles que l'utilisateur
          * aurait ajoutées à la main : seules les nôtres peuvent être retirées
@@ -1738,6 +1983,15 @@ class dreamebeCmd extends cmd {
             throw new Exception(__('Consommable inconnu :', __FILE__) . ' ' . $logicalId);
         }
 
+        /* Les réglages secondaires sont décrits par une table : les aiguiller
+         * un par un aurait demandé autant de cas que d'entrées, et un oubli à
+         * chaque ajout. */
+        foreach (dreamebe::$extraActions as $name => $action) {
+            if ($logicalId === $action[0]) {
+                return $eqLogic->commandSetExtra($name, self::argument($_options));
+            }
+        }
+
         switch ($logicalId) {
             case 'demarrer':
             case 'reprendre':
@@ -1768,7 +2022,7 @@ class dreamebeCmd extends cmd {
             case 'regler_mode':
                 return $eqLogic->commandSetMode(self::argument($_options));
             case 'nettoyer_pieces':
-                return $eqLogic->commandCleanRooms(self::roomList($eqLogic, self::argument($_options)));
+                return self::cleanRooms($eqLogic, self::argument($_options));
             case 'nettoyer_zone':
                 return self::cleanZone($eqLogic, self::argument($_options));
         }
@@ -1836,6 +2090,22 @@ class dreamebeCmd extends cmd {
             }
         }
         return $ids;
+    }
+
+    /*
+     * « Cuisine, Salon » nettoie ces deux pièces une fois, au réglage du robot.
+     * « Cuisine, Salon | 2 » y passe deux fois. « Cuisine | 2 | 3 » y passe deux
+     * fois en Turbo.
+     *
+     * La barre verticale plutôt qu'une virgule : les noms de pièces en
+     * contiennent déjà, et il faut bien séparer la liste de ses paramètres.
+     */
+    private static function cleanRooms($_eqLogic, $_argument) {
+        $parts = explode('|', (string) $_argument);
+        $rooms = self::roomList($_eqLogic, array_shift($parts));
+        $repeats = isset($parts[0]) && trim($parts[0]) !== '' ? (int) trim($parts[0]) : 1;
+        $suction = isset($parts[1]) && trim($parts[1]) !== '' ? (int) trim($parts[1]) : null;
+        return $_eqLogic->commandCleanRooms($rooms, $repeats, $suction);
     }
 
     private static function cleanZone($_eqLogic, $_argument) {

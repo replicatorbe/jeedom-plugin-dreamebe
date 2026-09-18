@@ -219,6 +219,14 @@ Elles sont tenues à jour comme les autres ; une case à cocher dans l'onglet
 Commandes suffit à en afficher une. Sans cela, un robot occuperait à lui seul un
 écran entier de tuiles.
 
+Les commandes principales portent un **type générique** de Jeedom : batterie
+(`batterie`), batterie en charge (`en_charge`), vitesse de ventilateur
+(`regler_aspiration`) et son état (`aspiration`), retour à la base
+(`retour_station`) et état de la base (`station`). Ce n'est pas une décoration :
+c'est ce qui permet aux widgets, aux résumés d'objet et aux assistants vocaux de
+reconnaître ces commandes pour ce qu'elles sont, sans qu'on ait à le leur
+expliquer équipement par équipement.
+
 ### État du robot
 
 | Identifiant | Nom | Type | Remarque |
@@ -254,7 +262,7 @@ confondre revient à recevoir une notification d'incident pour un sac à changer
 
 | Identifiant | Nom | Type | Remarque |
 |---|---|---|---|
-| `aspiration` | Aspiration | info / numérique | 0 à 3. Masquée. |
+| `aspiration` | Niveau aspiration | info / numérique | 0 à 3. Masquée. |
 | `aspiration_texte` | Aspiration (texte) | info / texte | Silencieux, Standard, Fort, Turbo. |
 | `reservoir` | Réservoir | info / texte | Masquée. |
 | `serpillere` | Serpillière posée | info / binaire | |
@@ -267,18 +275,19 @@ Sur un robot **à base de lavage** s'ajoutent :
 | `mode_texte` | Mode (texte) | info / texte | Aspiration seule, Lavage seul, Aspiration et lavage, Lavage après aspiration. |
 | `humidite` | Humidité | info / numérique | Masquée. |
 | `humidite_texte` | Humidité (texte) | info / texte | Peu humide, Humide, Très humide. |
+| `humidite_niveau` | Humidité (niveau fin) | info / numérique | L'échelle de 1 à 32 des robots récents, quand ils l'exposent. Masquée. |
 | `station` | Station | info / texte | Ce que fait la base : lavage, séchage, remplissage… |
 | `alerte_eau` | Alerte eau | info / texte | |
-| `reservoir_propre` | Réservoir d'eau propre | info / texte | |
-| `reservoir_sale` | Réservoir d'eau sale | info / texte | |
+| `reservoir_propre` | Réservoir eau propre | info / texte | |
+| `reservoir_sale` | Réservoir eau sale | info / texte | |
 | `sac` | Sac à poussière | info / texte | |
 
 Sur un robot **sans base de lavage**, ce sont à la place :
 
 | Identifiant | Nom | Type | Remarque |
 |---|---|---|---|
-| `eau` | Niveau d'eau | info / numérique | Masquée. |
-| `eau_texte` | Niveau d'eau (texte) | info / texte | Faible, Moyen, Élevé. |
+| `eau` | Niveau eau | info / numérique | Masquée. |
+| `eau_texte` | Niveau eau (texte) | info / texte | Faible, Moyen, Élevé. |
 
 ### Ordres
 
@@ -288,10 +297,10 @@ Sur un robot **sans base de lavage**, ce sont à la place :
 | `pause` | Pause | action |
 | `reprendre` | Reprendre | action |
 | `arreter` | Arrêter | action |
-| `retour_station` | Retour à la station | action |
+| `retour_station` | Retourner à la station | action |
 | `localiser` | Localiser | action |
-| `acquitter` | Acquitter l'alerte | action |
-| `regler_aspiration` | Régler l'aspiration | action / liste — Silencieux, Standard, Fort, Turbo |
+| `acquitter` | Acquitter le message | action |
+| `regler_aspiration` | Régler la puissance | action / liste — Silencieux, Standard, Fort, Turbo |
 | `nettoyer_pieces` | Nettoyer des pièces | action / message |
 | `nettoyer_zone` | Nettoyer une zone | action / message |
 
@@ -299,14 +308,14 @@ Sur un robot **à base de lavage** :
 
 | Identifiant | Nom | Type |
 |---|---|---|
-| `regler_humidite` | Régler l'humidité | action / liste — Peu humide, Humide, Très humide |
+| `regler_humidite` | Régler le taux humidité | action / liste — Peu humide, Humide, Très humide |
 | `regler_mode` | Régler le mode | action / liste — Aspiration seule, Lavage seul, Aspiration et lavage, Lavage après aspiration |
 | `laver_serpillere` | Laver la serpillière | action |
 | `secher_serpillere` | Sécher la serpillière | action |
 | `arreter_sechage` | Arrêter le séchage | action |
 
 Sur un robot **sans base de lavage**, à la place : `regler_eau`, « Régler le
-niveau d'eau », en liste Faible / Moyen / Élevé.
+débit eau », en liste Faible / Moyen / Élevé.
 
 Enfin, `vider_bac` (« Vider le bac ») n'est créée que si le robot a déclaré une
 station à vidage automatique.
@@ -315,6 +324,48 @@ station à vidage automatique.
 fonctionne le protocole, qui reprend une tâche en pause avec la commande de
 départ. Les deux commandes existent parce qu'un scénario nommé « reprendre » se
 relit mieux qu'un scénario qui démarre ce qui tourne déjà.
+
+### Propriétés secondaires
+
+Ces commandes d'information ne sont créées que si **votre** robot répond à la
+propriété correspondante : c'est encore le sondage qui décide. Les cinq
+premières changent pendant le travail et sont relues à chaque cycle ; les autres
+ne bougent que lorsqu'on les change, et sont relues avec les consommables et les
+statistiques.
+
+| Identifiant | Nom | Type | Valeurs |
+|---|---|---|---|
+| `sechage_progression` | Progression du séchage | info / numérique (%) | |
+| `type_tache` | Type de tâche | info / texte | Nettoyage standard, personnalisé, programmé, sur appel, traitement d'une tache, entretien du sol… |
+| `localisation` | Localisation | info / texte | Localisé, Localisation en cours, Échec, Réussie |
+| `vidage_disponible` | Auto-vidage disponible | info / texte | Indisponible, Disponible, Usage prolongé, Jamais |
+| `vidage_etat` | Auto-vidage en cours | info / texte | Au repos, En cours, Non effectué |
+| `volume` | Volume des annonces | info / numérique (%) | |
+| `dnd` | Ne pas déranger | info / binaire | |
+| `temperature_eau` | Température eau | info / texte | Normale, Tiède, Chaude, Très chaude, Maximale |
+| `niveau_lavage` | Niveau de lavage | info / texte | Économie d'eau, Quotidien, Profond |
+| `duree_sechage` | Durée de séchage | info / numérique (h) | |
+| `tapis` | Gestion des tapis | info / texte | Non défini, Évitement, Adaptation, Retrait de la serpillière, et quelques variantes selon la machine |
+| `detergent_auto` | Détergent automatique | info / texte | Désactivé, Activé, Absent |
+| `eau_chaude` | Eau chaude | info / texte | Désactivée, Activée |
+| `detergent` | Détergent | info / texte | Installé, Désactivé, Niveau bas |
+| `premier_nettoyage` | Premier nettoyage | info / texte | La date du premier nettoyage du robot. |
+
+### Réglages secondaires
+
+Six de ces propriétés se règlent aussi depuis Jeedom. Chacune n'apparaît que si
+le robot a répondu à la propriété correspondante, et met à jour l'information qui
+lui fait face sans attendre le prochain cycle lent — sans quoi l'ancienne valeur
+resterait affichée une demi-heure, et l'on croirait l'ordre perdu.
+
+| Identifiant | Nom | Type | Valeurs |
+|---|---|---|---|
+| `regler_volume` | Régler le volume | action / curseur | de 0 à 100 |
+| `regler_dnd` | Régler « Ne pas déranger » | action / liste | Désactivé, Activé |
+| `regler_temperature` | Régler la température eau | action / liste | Normale, Tiède, Chaude, Très chaude, Maximale |
+| `regler_niveau_lavage` | Régler le niveau de lavage | action / liste | Économie d'eau, Quotidien, Profond |
+| `regler_tapis` | Régler la gestion des tapis | action / liste | Non défini, Évitement, Adaptation, Retrait de la serpillière |
+| `regler_detergent` | Régler le détergent automatique | action / liste | Désactivé, Activé |
 
 ### Entretien
 
@@ -337,7 +388,7 @@ Les consommables que le plugin sait nommer :
 | `sensor` | Capteurs |
 | `tank_filter` | Filtre du réservoir |
 | `mop_pad` | Serpillière |
-| `silver_ion` | Module ions d'argent |
+| `silver_ion` | Module ions argent |
 | `detergent` | Détergent |
 | `squeegee` | Raclette |
 | `deodorizer` | Module désodorisant |
@@ -386,6 +437,11 @@ nommée **Nettoyer : *nom de la pièce***. Elles apparaissent dès que la carte 
 fusionnée ou supprimée dans l'application : une commande qui échouerait en
 silence ne vaut rien.
 
+S'y ajoute une commande d'information `pieces` (« Pièces »), qui rend la liste
+des noms de pièces séparés par des virgules. Elle existe pour qu'un scénario
+puisse les énumérer sans que leurs noms soient écrits en dur dans son code : le
+jour où une pièce est renommée dans l'application, le scénario suit.
+
 ## Nettoyer une ou plusieurs pièces
 
 Il y a deux façons de faire, et elles coexistent volontairement.
@@ -407,7 +463,21 @@ avec le nom en question dans le message : mieux vaut une erreur explicite qu'un
 robot qui part nettoyer autre chose. C'est cette commande qu'on utilise quand la
 liste des pièces dépend du scénario plutôt que d'être écrite d'avance.
 
-Dans les deux cas, la puissance d'aspiration et le niveau d'eau appliqués à
+Elle accepte aussi deux paramètres, à la suite de la liste. Le séparateur est
+une **barre verticale**, et non une virgule : la liste des pièces en contient
+déjà, et il faut bien distinguer l'une de l'autre.
+
+```
+Cuisine, Salon          nettoie ces deux pièces une fois, au réglage du robot
+Cuisine, Salon | 2      y passe deux fois
+Cuisine | 2 | 3         y passe deux fois, en Turbo
+```
+
+Le deuxième champ est le nombre de passages, le troisième le niveau
+d'aspiration, de 0 (silencieux) à 3 (turbo). Omis, chacun laisse au robot son
+propre réglage.
+
+Sans ces paramètres, la puissance d'aspiration et le niveau d'eau appliqués à
 chaque pièce sont ceux **réglés pour cette pièce dans l'application DreameHome**,
 lus dans la carte. Le plugin ne les impose pas : l'application reste l'endroit où
 l'on décide que la cuisine se lave et que la chambre s'aspire. L'ordre de passage
@@ -565,7 +635,7 @@ travaille que si l'intervalle réglé est écoulé.
 | Ce qui est relu | À quel rythme |
 |---|---|
 | État, batterie, erreurs, progression | l'**intervalle** réglé, 120 s par défaut, ramené à 60 s pendant un nettoyage |
-| Consommables et compteurs cumulés | l'intervalle **entretien et statistiques**, 1800 s par défaut |
+| Consommables, compteurs cumulés et réglages secondaires | l'intervalle **entretien et statistiques**, 1800 s par défaut |
 | Pièces et carte | l'intervalle **carte**, 900 s par défaut |
 | Historique des nettoyages | toutes les demi-heures |
 
@@ -627,6 +697,24 @@ le cycle au lieu de le faire réessayer.
 ou dont la carte est désactivée dans la configuration, n'aura aucune commande
 `room::…` et refusera `nettoyer_pieces`.
 
+**Le réglage par pièce n'est lisible que si le nettoyage personnalisé est
+activé.** Lorsque cette option est désactivée dans l'application DreameHome, la
+carte ne porte plus, pour chaque pièce, que les valeurs par défaut du robot :
+l'onglet Pièces affiche donc partout la même aspiration, la même eau et le même
+nombre de passages. Ce n'est pas une lacune du plugin, et rien n'est faussé pour
+autant — le robot applique bien ces valeurs. Pour régler une pièce
+différemment, il faut activer le nettoyage personnalisé dans l'application.
+
+**L'image de la carte est dessinée à partir de la carte sauvegardée.** La carte
+que le robot publie en cours de route ne porte ni les noms de pièces ni leur
+voisinage, et ses pixels n'encodent pas les identifiants de la même façon : la
+dessiner telle quelle donnerait un plan d'un seul tenant, d'une seule couleur, où
+aucune pièce ne se distinguerait. Le plugin décode donc la carte sauvegardée que
+la carte courante embarque — sans téléchargement supplémentaire — et lui greffe
+la position du robot, qui, elle, n'existe que dans la carte courante. Si cette
+carte jointe est illisible, l'image est tout de même dessinée, mais sans
+distinction de pièces.
+
 ## Choix techniques
 
 **Tout est en PHP natif, sans démon ni dépendance.** Pas de Python, pas de paquet
@@ -650,6 +738,15 @@ produit, et fausse dès la première variante régionale. Puisque le robot sait
 répondre, on lui demande. Une machine inconnue du plugin fonctionne donc, avec
 exactement les commandes qui lui correspondent, et un modèle absent de la table
 des noms n'est pas bloqué pour autant : il apparaît sous sa référence d'usine.
+
+**Les noms de commandes ne contiennent aucune apostrophe.** Ce n'est pas un choix
+de style : `cmd::setName()`, dans le cœur de Jeedom, retire les apostrophes des
+noms de commande sans rien dire. « Niveau d'aspiration » s'affichait donc
+« Niveau daspiration », et l'on cherchait longtemps du côté de l'encodage. Onze
+libellés ont été reformulés pour s'en passer — « Niveau aspiration », « Régler le
+débit eau », « Acquitter le message » — et un contrôle du jeu d'essai refuse
+désormais tout nom qui en contiendrait. Les identifiants internes, eux, n'ont pas
+bougé : les scénarios existants ne sont pas affectés.
 
 **Le rendu de carte est volontairement sobre.** Le rendu complet de
 l'implémentation de référence fait plus de quatre mille lignes et s'appuie sur

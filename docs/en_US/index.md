@@ -207,6 +207,13 @@ Commands marked "hidden" are created but invisible on the dashboard. They are
 kept up to date like the others; one tick box in the Commands tab is enough to
 show one. Without that, a single robot would fill a whole screen with tiles.
 
+The main commands carry a Jeedom **generic type**: battery (`batterie`), battery
+charging (`en_charge`), fan speed (`regler_aspiration`) and its state
+(`aspiration`), return to dock (`retour_station`) and dock state (`station`).
+This is not decoration: it is what allows widgets, object summaries and voice
+assistants to recognise those commands for what they are, without having to be
+told device by device.
+
 ### Robot state
 
 | Identifier | Name | Type | Note |
@@ -242,7 +249,7 @@ them means getting an incident notification because a bag needs changing.
 
 | Identifier | Name | Type | Note |
 |---|---|---|---|
-| `aspiration` | Suction | info / numeric | 0 to 3. Hidden. |
+| `aspiration` | Suction level | info / numeric | 0 to 3. Hidden. |
 | `aspiration_texte` | Suction (text) | info / string | Silent, Standard, Strong, Turbo. |
 | `reservoir` | Tank | info / string | Hidden. |
 | `serpillere` | Mop attached | info / binary | |
@@ -255,6 +262,7 @@ On a robot **with a washing base**, these are added:
 | `mode_texte` | Mode (text) | info / string | Vacuum only, Mop only, Vacuum and mop, Mop after vacuum. |
 | `humidite` | Humidity | info / numeric | Hidden. |
 | `humidite_texte` | Humidity (text) | info / string | Slightly damp, Damp, Very damp. |
+| `humidite_niveau` | Humidity (fine level) | info / numeric | The 1-to-32 scale of recent robots, when they expose it. Hidden. |
 | `station` | Station | info / string | What the base is doing: washing, drying, refilling… |
 | `alerte_eau` | Water warning | info / string | |
 | `reservoir_propre` | Clean water tank | info / string | |
@@ -276,10 +284,10 @@ On a robot **without a washing base**, these instead:
 | `pause` | Pause | action |
 | `reprendre` | Resume | action |
 | `arreter` | Stop | action |
-| `retour_station` | Return to dock | action |
+| `retour_station` | Return to the dock | action |
 | `localiser` | Locate | action |
-| `acquitter` | Clear the alert | action |
-| `regler_aspiration` | Set suction | action / list — Silent, Standard, Strong, Turbo |
+| `acquitter` | Acknowledge the message | action |
+| `regler_aspiration` | Set power | action / list — Silent, Standard, Strong, Turbo |
 | `nettoyer_pieces` | Clean rooms | action / message |
 | `nettoyer_zone` | Clean a zone | action / message |
 
@@ -287,13 +295,13 @@ On a robot **with a washing base**:
 
 | Identifier | Name | Type |
 |---|---|---|
-| `regler_humidite` | Set humidity | action / list — Slightly damp, Damp, Very damp |
+| `regler_humidite` | Set humidity level | action / list — Slightly damp, Damp, Very damp |
 | `regler_mode` | Set mode | action / list — Vacuum only, Mop only, Vacuum and mop, Mop after vacuum |
 | `laver_serpillere` | Wash the mop | action |
 | `secher_serpillere` | Dry the mop | action |
 | `arreter_sechage` | Stop drying | action |
 
-On a robot **without a washing base**, instead: `regler_eau`, "Set water level",
+On a robot **without a washing base**, instead: `regler_eau`, "Set water flow",
 as a Low / Medium / High list.
 
 Finally, `vider_bac` ("Empty the bin") is created only if the robot declared a
@@ -303,6 +311,47 @@ station with automatic emptying.
 protocol works, resuming a paused task with the start command. Both commands
 exist because a scenario named "resume" reads better than one that starts what is
 already running.
+
+### Secondary properties
+
+These info commands are created only if **your** robot answers the matching
+property: probing decides here too. The first five change while the robot works
+and are read every cycle; the others only move when someone changes them, and are
+read along with the consumables and the statistics.
+
+| Identifier | Name | Type | Values |
+|---|---|---|---|
+| `sechage_progression` | Drying progress | info / numeric (%) | |
+| `type_tache` | Task type | info / string | Standard, custom, scheduled or on-call cleaning, spot treatment, floor care… |
+| `localisation` | Localisation | info / string | Located, Locating, Failed, Succeeded |
+| `vidage_disponible` | Auto-empty available | info / string | Unavailable, Available, Extended use, Never |
+| `vidage_etat` | Auto-empty running | info / string | Idle, Running, Not performed |
+| `volume` | Announcement volume | info / numeric (%) | |
+| `dnd` | Do not disturb | info / binary | |
+| `temperature_eau` | Water temperature | info / string | Normal, Lukewarm, Warm, Hot, Maximum |
+| `niveau_lavage` | Wash level | info / string | Water saving, Daily, Deep |
+| `duree_sechage` | Drying time | info / numeric (h) | |
+| `tapis` | Carpet handling | info / string | Undefined, Avoid, Adapt, Lift the mop, plus a few variants depending on the machine |
+| `detergent_auto` | Automatic detergent | info / string | Disabled, Enabled, Absent |
+| `eau_chaude` | Hot water | info / string | Disabled, Enabled |
+| `detergent` | Detergent | info / string | Installed, Disabled, Low |
+| `premier_nettoyage` | First cleaning | info / string | The date of the robot's first cleaning. |
+
+### Secondary settings
+
+Six of these properties can also be set from Jeedom. Each appears only if the
+robot answered the matching property, and updates the information facing it
+without waiting for the next slow cycle — otherwise the old value would stay on
+screen for half an hour, and the order would look lost.
+
+| Identifier | Name | Type | Values |
+|---|---|---|---|
+| `regler_volume` | Set volume | action / slider | 0 to 100 |
+| `regler_dnd` | Set "Do not disturb" | action / list | Disabled, Enabled |
+| `regler_temperature` | Set water temperature | action / list | Normal, Lukewarm, Warm, Hot, Maximum |
+| `regler_niveau_lavage` | Set wash level | action / list | Water saving, Daily, Deep |
+| `regler_tapis` | Set carpet handling | action / list | Undefined, Avoid, Adapt, Lift the mop |
+| `regler_detergent` | Set automatic detergent | action / list | Disabled, Enabled |
 
 ### Maintenance
 
@@ -373,6 +422,11 @@ For each room on the map, an action command `room::<identifier>`, named **Clean:
 by themselves when a room is merged or deleted in the application: a command that
 would fail silently is worth nothing.
 
+To these is added an info command `pieces` ("Rooms"), which returns the list of
+room names separated by commas. It exists so that a scenario can enumerate them
+without their names being hard-coded in it: the day a room is renamed in the
+application, the scenario follows.
+
 ## Cleaning one or more rooms
 
 There are two ways to do this, and they coexist on purpose.
@@ -394,8 +448,21 @@ name in the message: an explicit error beats a robot cleaning something else.
 This is the command to use when the list of rooms depends on the scenario rather
 than being written in advance.
 
-In both cases, the suction power and water level applied to each room are the
-ones **set for that room in the DreameHome application**, read from the map. The
+It also accepts two parameters after the list. The separator is a **vertical
+bar**, not a comma: the list of rooms already contains commas, and the two have
+to be told apart.
+
+```
+Kitchen, Living room          cleans both rooms once, at the robot's own settings
+Kitchen, Living room | 2      goes over them twice
+Kitchen | 2 | 3               goes over it twice, on Turbo
+```
+
+The second field is the number of passes, the third the suction level, from 0
+(silent) to 3 (turbo). Left out, each leaves the robot its own setting.
+
+Without those parameters, the suction power and water level applied to each room
+are the ones **set for that room in the DreameHome application**, read from the map. The
 plugin does not impose them: the application remains the place where you decide
 that the kitchen gets mopped and the bedroom vacuumed. The order in which rooms
 are visited is also set in the application.
@@ -547,7 +614,7 @@ configured interval has elapsed.
 | What is read | How often |
 |---|---|
 | State, battery, errors, progress | the configured **interval**, 120 s by default, reduced to 60 s during a cleaning |
-| Consumables and cumulative counters | the **maintenance and statistics** interval, 1800 s by default |
+| Consumables, cumulative counters and secondary settings | the **maintenance and statistics** interval, 1800 s by default |
 | Rooms and map | the **map** interval, 900 s by default |
 | Cleaning history | every half hour |
 
@@ -605,6 +672,23 @@ why. It is also why a wrong password stops the cycle instead of making it retry.
 map is disabled in the configuration, will have no `room::…` command and will
 refuse `nettoyer_pieces`.
 
+**Per-room settings are only readable when custom cleaning is enabled.** When
+that option is disabled in the DreameHome application, the map only carries the
+robot's default values for each room: the Rooms tab then shows the same suction,
+the same water and the same number of passes everywhere. This is not a
+shortcoming of the plugin, and nothing is wrong for all that — the robot does
+apply those values. To set a room differently, enable custom cleaning in the
+application.
+
+**The map image is drawn from the saved map.** The map the robot publishes while
+working carries neither room names nor their adjacency, and its pixels do not
+encode identifiers the same way: drawing it as is would give a single-piece,
+single-colour plan in which no room could be told apart. The plugin therefore
+decodes the saved map that the current map embeds — with no extra download — and
+grafts onto it the robot's position, which only exists in the current map. If
+that embedded map cannot be read, the image is still drawn, but without rooms
+being told apart.
+
 ## Technical choices
 
 **Everything is plain PHP, with no daemon and no dependency.** No Python, no
@@ -628,6 +712,14 @@ is wrong from the first regional variant onwards. Since the robot can answer, we
 ask it. A machine unknown to the plugin therefore works, with exactly the
 commands that match it, and a model missing from the name table is not blocked
 either: it simply shows up under its factory reference.
+
+**No command name contains an apostrophe.** This is not a matter of style:
+`cmd::setName()`, in Jeedom's core, silently strips apostrophes from command
+names. The French "Niveau d'aspiration" was therefore displayed as "Niveau
+daspiration", and one spent a long time suspecting the encoding. Eleven labels
+were reworded to do without them, and a test-suite check now rejects any name
+that would contain one. The internal identifiers did not change: existing
+scenarios are unaffected.
 
 **Map rendering is deliberately plain.** The full renderer of the reference
 implementation runs to more than four thousand lines and relies on tens of
