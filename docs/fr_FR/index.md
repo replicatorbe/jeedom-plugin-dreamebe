@@ -209,82 +209,41 @@ historisation, configuration et test. L'identifiant interne de chaque commande �
 celui des tableaux plus bas — s'affiche en infobulle sur sa ligne, ce qui évite
 de le chercher ailleurs au moment d'écrire un scénario.
 
-## La tuile du tableau de bord
-
-Un robot expose ici une centaine de commandes. Affichées toutes ensemble, elles
-noyaient l'essentiel — que fait le robot, et combien lui reste-t-il de batterie —
-au milieu de « Premier nettoyage » et « Filtre du réservoir ». Le cœur de Jeedom
-prévoit ce cas : il détecte par réflexion qu'un plugin compose lui-même sa tuile,
-et lui laisse la main sur le contenu. Le plugin garde l'habillage du cœur — le
-nom, le lien vers l'équipement, le badge d'alerte, le graphique de fond — et ne
-remplace que le bloc des commandes.
-
-La tuile montre, de haut en bas :
-
-- une **pastille de couleur** suivie de l'état en toutes lettres ;
-- une **jauge de batterie** avec son pourcentage ;
-- les **chiffres du nettoyage en cours** — durée, surface, progression — masqués
-  tant qu'ils valent zéro, c'est-à-dire hors nettoyage ;
-- un **message** quand le robot est injoignable ou en erreur ;
-- une rangée de **cinq boutons** : démarrer, pause, arrêter, retourner à la
-  station, localiser ;
-- une **puce par pièce**, cliquable, qui lance le nettoyage de cette pièce.
-
-La pastille prend cinq tons, dans cet ordre de priorité :
-
-| Ton | Quand |
-|---|---|
-| Gris pâle | Le robot est injoignable. |
-| Rouge | Panne du robot. |
-| Orange | Alerte de la station : bac plein, réservoir à vider. |
-| Bleu | En charge. |
-| Vert, qui pulse | En activité. |
-| Gris | Au repos. |
-
-L'ordre est celui de l'urgence, et il compte : une panne prime sur tout le reste,
-et un robot injoignable prime sur son dernier état connu — afficher « Aspiration »
-pour une machine que le cloud ne voit plus serait le plus sûr moyen de la croire
-au travail alors qu'elle est débranchée.
-
-La tuile se met à jour **en direct**, par le mécanisme du cœur : l'état, la
-batterie et les chiffres du nettoyage changent sous les yeux, sans rechargement
-de page.
-
-Qui préfère la présentation d'origine la retrouve en décochant **Widget** dans la
-configuration avancée de l'équipement. C'est pour ce cas que la visibilité des
-commandes a été revue, décrite juste après.
-
-Enfin, si le rendu de la tuile échoue, le plugin revient à la présentation du
-cœur et écrit la raison dans son journal. Ce n'est pas de la prudence
-décorative : sur un tableau de bord, une tuile qui lève une erreur emporte toutes
-les autres avec elle.
-
 ## Les commandes
 
 Les identifiants internes ci-dessous sont ceux à employer dans les scénarios et
 les appels d'API. Ils sont figés : ils ne changeront pas d'une version à l'autre.
 
-**Les commandes sont créées masquées, sauf une dizaine.** Restent visibles l'état
-(`etat`), l'activité (`en_activite`), la batterie (`batterie`), l'erreur
-(`erreur`), la carte (`carte`) et les cinq ordres principaux (`demarrer`,
-`pause`, `arreter`, `retour_station`, `localiser`). La tuile, elle, montre ce qui
-compte sans se soucier de ce réglage : il ne sert qu'à celui qui revient à la
-présentation d'origine, et là encore une dizaine de lignes valent mieux qu'une
-centaine. Toutes les commandes masquées sont tenues à jour comme les autres, et
-une case à cocher dans l'onglet Commandes suffit à en afficher une.
+Le tableau de bord est celui du cœur de Jeedom : chaque commande visible y porte
+son nom. C'est le point important, et il vient d'un essai en conditions réelles :
+une rangée d'icônes sans libellé ne se devine pas. « Arrêter » interrompt le
+nettoyage là où le robot se trouve ; « Retourner à la station » le renvoie se
+recharger. Ce sont deux ordres distincts du protocole, et rien ne les
+distinguerait sans leur étiquette.
 
-Ce choix ne s'applique qu'aux commandes **nouvellement créées** : ce qu'un
-utilisateur a réglé lui appartient et n'est jamais redéfini. Dans les tableaux
-ci-dessous, la mention « masquée » signale les valeurs brutes qui doublent un
-libellé lisible, et qui n'ont d'intérêt que pour un calcul dans un scénario.
+**Dix-neuf commandes sont visibles** à la création, sur un robot à six pièces :
+l'état (`etat`), la batterie (`batterie`), l'erreur (`erreur`), la station
+(`station`), la carte (`carte`) ; les cinq ordres du quotidien (`demarrer`,
+`pause`, `arreter`, `retour_station`, `localiser`) ; les trois réglages qu'on
+change avant de lancer un nettoyage (`regler_aspiration`, `regler_mode` et
+`regler_humidite`, ou `regler_eau` selon la machine) ; et une commande par pièce,
+« Nettoyer : *pièce* » n'ayant besoin d'aucune explication. Tout le reste est
+créé **masqué** : un robot expose ici une centaine de commandes, et les afficher
+toutes noierait l'essentiel. Masquer n'est pas supprimer — ces commandes restent
+tenues à jour, utilisables dans les scénarios, et une case à cocher dans l'onglet
+Commandes suffit à en afficher une.
 
-Les commandes principales portent un **type générique** de Jeedom : batterie
-(`batterie`), batterie en charge (`en_charge`), vitesse de ventilateur
-(`regler_aspiration`) et son état (`aspiration`), retour à la base
-(`retour_station`) et état de la base (`station`). Ce n'est pas une décoration :
-c'est ce qui permet aux widgets, aux résumés d'objet et aux assistants vocaux de
-reconnaître ces commandes pour ce qu'elles sont, sans qu'on ait à le leur
-expliquer équipement par équipement.
+Cette visibilité n'est posée qu'à la **création** : ce que l'utilisateur règle
+ensuite lui appartient et n'est jamais redéfini, même après une mise à jour du
+plugin. Pour repartir de la présentation d'origine, la méthode
+`applyDefaultVisibility()` d'un équipement ramène ses commandes à la visibilité
+d'un équipement neuf, sans jamais toucher à une commande ajoutée à la main. Elle
+ne figure pas dans le cycle d'actualisation et ne s'exécute que sur demande :
+elle défait des réglages d'affichage, ce qui ne doit jamais arriver par surprise.
+
+Dans les tableaux ci-dessous, la mention « masquée » signale les valeurs brutes
+qui doublent un libellé lisible, et qui n'ont d'intérêt que pour un calcul dans
+un scénario.
 
 ### État du robot
 
@@ -592,6 +551,12 @@ heure. On y voit :
 On n'y voit **pas** les meubles, les obstacles détectés, les tapis, les zones
 interdites ni le trajet parcouru. Ce choix est expliqué plus bas, dans « Choix
 techniques ».
+
+Le plan est dessiné sur un **fond clair opaque**, avec des murs sombres, et cela
+quel que soit le thème de Jeedom. Sur fond transparent, l'image laissait passer le
+gris du tableau de bord, et des murs gris clair s'y confondaient jusqu'à
+disparaître. Le widget ajoute par-dessus un liseré discret, qui détache le plan du
+reste de la tuile.
 
 Aller chercher une carte demande trois requêtes et quelques centaines de
 kilo-octets, pour une information qui ne bouge pas d'une minute à l'autre. Elle

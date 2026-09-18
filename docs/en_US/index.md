@@ -198,76 +198,38 @@ configuration and test. Each command's internal identifier — the one used in t
 tables below — appears as a tooltip on its row, which saves looking it up
 elsewhere when writing a scenario.
 
-## The dashboard tile
-
-A robot exposes about a hundred commands here. Shown all together, they drowned
-what matters — what the robot is doing, and how much battery it has left — among
-"First cleaning" and "Tank filter". Jeedom's core provides for this case: it
-detects by reflection that a plugin composes its own tile, and hands it the
-contents. The plugin keeps the core's frame — the name, the link to the device,
-the alert badge, the background graph — and replaces only the block of commands.
-
-From top to bottom, the tile shows:
-
-- a **coloured dot** followed by the state in plain words;
-- a **battery gauge** with its percentage;
-- the **figures of the current cleaning** — time, area, progress — hidden while
-  they are zero, that is, outside a cleaning;
-- a **message** when the robot is unreachable or in error;
-- a row of **five buttons**: start, pause, stop, return to the dock, locate;
-- one **clickable chip per room**, which starts cleaning that room.
-
-The dot takes five tones, in this order of priority:
-
-| Tone | When |
-|---|---|
-| Pale grey | The robot is unreachable. |
-| Red | Robot fault. |
-| Orange | Station warning: full bin, tank to empty. |
-| Blue | Charging. |
-| Green, pulsing | Active. |
-| Grey | Idle. |
-
-The order is that of urgency, and it matters: a fault takes precedence over
-everything else, and an unreachable robot takes precedence over its last known
-state — showing "Vacuuming" for a machine the cloud can no longer see would be
-the surest way to believe it is at work while it is unplugged.
-
-The tile updates **live**, through the core's mechanism: the state, the battery
-and the cleaning figures change before your eyes, with no page reload.
-
-Anyone who prefers the original presentation gets it back by unticking **Widget**
-in the device's advanced configuration. It is for that case that command
-visibility was revised, as described just below.
-
-Finally, if rendering the tile fails, the plugin falls back on the core's
-presentation and writes the reason to its log. This is not decorative caution: on
-a dashboard, a tile that throws takes all the others down with it.
-
 ## The commands
 
 The internal identifiers below are the ones to use in scenarios and API calls.
 They are frozen: they will not change from one version to the next.
 
-**Commands are created hidden, save about ten.** Visible are the state (`etat`),
-activity (`en_activite`), battery (`batterie`), error (`erreur`), the map
-(`carte`) and the five main orders (`demarrer`, `pause`, `arreter`,
-`retour_station`, `localiser`). The tile itself shows what matters regardless of
-that flag: it only serves whoever goes back to the original presentation, and
-there too ten lines beat a hundred. All hidden commands are kept up to date like
-the others, and one tick box in the Commands tab is enough to show one.
+The dashboard is the core's own: every visible command carries its name there.
+That is the important point, and it comes from a real-world trial: a row of
+unlabelled icons cannot be guessed. "Stop" interrupts the cleaning where the
+robot stands; "Return to the dock" sends it back to charge. These are two
+distinct orders in the protocol, and nothing would tell them apart without their
+labels.
 
-This choice applies only to **newly created** commands: what a user has set is
-theirs and is never redefined. In the tables below, the "hidden" note marks the
-raw values that duplicate a readable label, and that are only of interest for a
-computation in a scenario.
+**Nineteen commands are visible** at creation time, on a robot with six rooms:
+the state (`etat`), the battery (`batterie`), the error (`erreur`), the station
+(`station`), the map (`carte`); the five everyday orders (`demarrer`, `pause`,
+`arreter`, `retour_station`, `localiser`); the three settings one changes before
+starting a cleaning (`regler_aspiration`, `regler_mode` and `regler_humidite`, or
+`regler_eau` depending on the machine); and one command per room, "Clean: *room*"
+needing no explanation at all. Everything else is created **hidden**: a robot
+exposes about a hundred commands here, and showing them all would drown what
+matters. Hidden is not deleted — those commands are still kept up to date, still
+usable in scenarios, and one tick box in the Commands tab is enough to show one.
 
-The main commands carry a Jeedom **generic type**: battery (`batterie`), battery
-charging (`en_charge`), fan speed (`regler_aspiration`) and its state
-(`aspiration`), return to dock (`retour_station`) and dock state (`station`).
-This is not decoration: it is what allows widgets, object summaries and voice
-assistants to recognise those commands for what they are, without having to be
-told device by device.
+This visibility is only set at **creation**: what the user sets afterwards is
+theirs and is never redefined, not even after a plugin update. To start again
+from the original presentation, a device's `applyDefaultVisibility()` method
+restores its commands to the visibility of a brand-new device, without ever
+touching a command added by hand. It is not part of the refresh cycle and only
+runs on request: it undoes display settings, which must never happen by surprise.
+
+In the tables below, the "hidden" note marks the raw values that duplicate a
+readable label, and that are only of interest for a computation in a scenario.
 
 ### Robot state
 
@@ -570,6 +532,12 @@ address, would dutifully display the map from an hour ago. It shows:
 
 It does **not** show furniture, detected obstacles, carpets, no-go zones or the
 path travelled. That choice is explained below, under "Technical choices".
+
+The plan is drawn on an **opaque light background**, with dark walls, whatever
+Jeedom theme is in use. On a transparent background, the image let the dashboard's
+grey show through, and light grey walls blended into it until they vanished. The
+widget adds a discreet border on top, which sets the plan apart from the rest of
+the tile.
 
 Fetching a map takes three requests and a few hundred kilobytes, for information
 that does not change from one minute to the next. It is therefore cached on

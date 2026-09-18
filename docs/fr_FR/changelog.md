@@ -74,12 +74,14 @@ protocole et ne sont pas gérés.
   en charge, vitesse de ventilateur et son état, retour à la base et état de la
   base — que les widgets, les résumés d'objet et les assistants vocaux savent
   reconnaître.
-- Une tuile de tableau de bord sur mesure : pastille d'état colorée, jauge de
-  batterie, chiffres du nettoyage en cours, message d'erreur, cinq boutons et une
-  puce par pièce, le tout mis à jour en direct. Les commandes sont désormais
-  créées masquées sauf une dizaine, ce qui ne change rien à ce qu'un utilisateur
-  a déjà réglé ; la présentation d'origine reste disponible en décochant
-  « Widget ».
+- Un tableau de bord qui va à l'essentiel : dix-neuf commandes visibles sur un
+  robot à six pièces — état, batterie, erreur, station, carte, les cinq ordres du
+  quotidien, les trois réglages qu'on change avant de lancer un nettoyage, et une
+  commande par pièce. Le reste est créé masqué, sans rien perdre : ces commandes
+  restent tenues à jour et utilisables dans les scénarios. Chaque tuile porte son
+  nom, parce qu'une icône sans libellé ne dit pas qu'« Arrêter » interrompt le
+  nettoyage sur place quand « Retourner à la station » renvoie le robot se
+  recharger.
 - Une page Santé qui dit si le compte est renseigné, jusqu'à quand la session est
   ouverte et quand chaque robot a été lu pour la dernière fois.
 

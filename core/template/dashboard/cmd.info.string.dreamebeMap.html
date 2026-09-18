@@ -26,10 +26,11 @@
           '.cmd-widget[data-template="dreamebeMap"] .cmdName{font-size:12px;line-height:16px;font-weight:400;color:var(--txt-color)}',
           '.cmd-widget[data-template="dreamebeMap"] .content{display:flex;flex-direction:column;align-items:stretch;width:100%;padding:0 6px 4px}',
 
-          /* La carte est dessinée sur un fond transparent : sans couleur dessous,
-             elle serait illisible sur un thème clair comme sur un thème sombre.
-             object-fit: contain, parce qu'un plan rogné n'est plus un plan. */
-          '.cmd-widget[data-template="dreamebeMap"] .dreameFrame{display:block;width:100%;overflow:hidden;border-radius:var(--border-radius);line-height:0;background:var(--background-color)}',
+          /* Le plan est dessiné sur un fond clair opaque : posé sur le gris du
+             tableau de bord, il s'y confondait. Un liseré discret le détache du
+             reste de la tuile, et object-fit: contain évite de le rogner —
+             un plan rogné n'est plus un plan. */
+          '.cmd-widget[data-template="dreamebeMap"] .dreameFrame{display:block;width:100%;overflow:hidden;border-radius:var(--border-radius);line-height:0;background:#f6f7f9;border:1px solid rgba(128,128,128,.35)}',
           '.cmd-widget[data-template="dreamebeMap"] .dreameImg{display:block;width:100%;height:auto;max-height:340px;object-fit:contain}',
 
           /* Ni carte, ni erreur : la tuile le dit en toutes lettres. Une zone

@@ -58,8 +58,17 @@ class dreamebeMapImage {
         array(184, 217, 141),
     );
 
-    const COLOR_WALL = array(120, 120, 120);
-    const COLOR_UNKNOWN = array(221, 221, 221);
+    /*
+     * Un plan se lit sur un fond clair, quel que soit le thème.
+     *
+     * Dessiné sur fond transparent, il laissait passer le gris du tableau de
+     * bord — et des murs gris clair sur ce gris-là ne se distinguaient plus.
+     * Le fond est donc opaque et neutre, et les murs assez sombres pour
+     * trancher sur les pastels des pièces.
+     */
+    const COLOR_PAPER = array(246, 247, 249);
+    const COLOR_WALL = array(72, 78, 86);
+    const COLOR_UNKNOWN = array(214, 218, 223);
     const COLOR_ROBOT = array(30, 90, 160);
     const COLOR_DOCK = array(90, 90, 90);
 
@@ -103,9 +112,9 @@ class dreamebeMapImage {
         $scale = max(1, min(self::MAX_SCALE, (int) floor(self::MAX_WIDTH / max($cols, $rows))));
 
         $image = imagecreatetruecolor($cols * $scale, $rows * $scale);
-        imagesavealpha($image, true);
         imagealphablending($image, false);
-        imagefill($image, 0, 0, imagecolorallocatealpha($image, 0, 0, 0, 127));
+        imagefill($image, 0, 0, imagecolorallocate($image,
+                  self::COLOR_PAPER[0], self::COLOR_PAPER[1], self::COLOR_PAPER[2]));
         imagealphablending($image, true);
 
         $colours = self::segmentColours($_map);

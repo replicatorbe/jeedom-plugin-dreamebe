@@ -48,6 +48,61 @@ class dreamebe extends eqLogic {
      * par une commande manquante mais par l'échec de TOUT l'enregistrement. */
     private $_usedNames = array();
 
+    /*
+     * Ce qui s'affiche sur le tableau de bord, par défaut.
+     *
+     * Un robot expose ici une centaine de commandes ; toutes visibles, elles
+     * noyaient l'essentiel. On s'en tient donc à ce qu'on vient réellement
+     * chercher : ce que fait le robot, sa batterie, une erreur éventuelle, la
+     * carte, les cinq ordres du quotidien et les trois réglages qu'on change
+     * avant de lancer un nettoyage. Plus une commande par pièce.
+     *
+     * Chaque tuile porte son nom, et c'est le point : une rangée d'icônes sans
+     * libellé ne se devine pas — « Arrêter » interrompt le nettoyage sur place,
+     * il ne renvoie pas à la station, et rien ne le dirait sans son étiquette.
+     *
+     * Ne s'applique qu'à la création : ce que l'utilisateur règle ensuite lui
+     * appartient. La méthode applyDefaultVisibility() permet d'y revenir quand
+     * il le demande.
+     */
+    public static $visibleByDefault = array(
+        'etat', 'batterie', 'erreur', 'station', 'carte',
+        'demarrer', 'pause', 'arreter', 'retour_station', 'localiser',
+        'regler_aspiration', 'regler_mode', 'regler_humidite', 'regler_eau',
+    );
+
+    public static function defaultVisibility($_logicalId) {
+        /* Les pièces sont des raccourcis explicites : « Nettoyer : Cuisine »
+         * n'a pas besoin d'explication, et c'est le geste le plus courant. */
+        if (strpos($_logicalId, 'room::') === 0) {
+            return 1;
+        }
+        return in_array($_logicalId, self::$visibleByDefault, true) ? 1 : 0;
+    }
+
+    /*
+     * Ramène la visibilité des commandes à celle d'un équipement neuf.
+     *
+     * Volontairement hors du cycle normal : elle défait des réglages
+     * d'affichage, et cela ne se fait que sur demande explicite.
+     */
+    public function applyDefaultVisibility() {
+        $touchees = 0;
+        foreach ($this->getCmd() as $cmd) {
+            /* Jamais une commande ajoutée à la main par l'utilisateur. */
+            if ($cmd->getConfiguration('managed', 0) != 1) {
+                continue;
+            }
+            $attendue = self::defaultVisibility($cmd->getLogicalId());
+            if ($cmd->getIsVisible() != $attendue) {
+                $cmd->setIsVisible($attendue);
+                $cmd->save();
+                $touchees++;
+            }
+        }
+        return $touchees;
+    }
+
     /* ------------------------------------------------------------------ *
      * Client du cloud
      * ------------------------------------------------------------------ */
@@ -1527,16 +1582,16 @@ class dreamebe extends eqLogic {
          */
         $probed = ($this->supported('state') !== null);
 
-        $this->addCmd('etat', 'État', 'info', 'string', array('order' => 1, 'visible' => 1));
+        $this->addCmd('etat', 'État', 'info', 'string', array('order' => 1));
         $this->addCmd('statut', 'Statut', 'info', 'string', array('order' => 2));
-        $this->addCmd('en_activite', 'En activité', 'info', 'binary', array('order' => 3, 'visible' => 1));
+        $this->addCmd('en_activite', 'En activité', 'info', 'binary', array('order' => 3));
         $this->addCmd('en_ligne', 'En ligne', 'info', 'binary', array('order' => 4));
         $this->addCmd('batterie', 'Batterie', 'info', 'numeric',
-                      array('order' => 5, 'unite' => '%', 'generic' => 'BATTERY', 'historize' => 1, 'visible' => 1));
+                      array('order' => 5, 'unite' => '%', 'generic' => 'BATTERY', 'historize' => 1));
         $this->addCmd('en_charge', 'En charge', 'info', 'binary',
                       array('order' => 6, 'generic' => 'BATTERY_CHARGING'));
         $this->addCmd('charge', 'État de charge', 'info', 'string', array('order' => 7, 'visible' => 0));
-        $this->addCmd('erreur', 'Erreur', 'info', 'string', array('order' => 8, 'visible' => 1));
+        $this->addCmd('erreur', 'Erreur', 'info', 'string', array('order' => 8));
         $this->addCmd('code_erreur', 'Code erreur', 'info', 'numeric', array('order' => 9, 'visible' => 0));
         $this->addCmd('en_erreur', 'En erreur', 'info', 'binary', array('order' => 10));
         $this->addCmd('en_alerte', 'Alerte station', 'info', 'binary', array('order' => 11));
@@ -1584,16 +1639,16 @@ class dreamebe extends eqLogic {
         $this->addCmd('serpillere', 'Serpillière posée', 'info', 'binary', array('order' => 42));
 
         /* --- Ordres ---------------------------------------------------- */
-        $this->addCmd('demarrer', 'Démarrer', 'action', 'other', array('order' => 50, 'visible' => 1));
-        $this->addCmd('pause', 'Pause', 'action', 'other', array('order' => 51, 'visible' => 1));
+        $this->addCmd('demarrer', 'Démarrer', 'action', 'other', array('order' => 50));
+        $this->addCmd('pause', 'Pause', 'action', 'other', array('order' => 51));
         $this->addCmd('reprendre', 'Reprendre', 'action', 'other', array('order' => 52));
-        $this->addCmd('arreter', 'Arrêter', 'action', 'other', array('order' => 53, 'visible' => 1));
+        $this->addCmd('arreter', 'Arrêter', 'action', 'other', array('order' => 53));
         /* Même raison : « Retour à la station » est un état du robot. L'ordre,
          * lui, se nomme à l'infinitif — ce qui est de toute façon la bonne
          * façon de nommer un bouton. */
         $this->addCmd('retour_station', 'Retourner à la station', 'action', 'other',
-                      array('order' => 54, 'generic' => 'DOCK', 'visible' => 1));
-        $this->addCmd('localiser', 'Localiser', 'action', 'other', array('order' => 55, 'visible' => 1));
+                      array('order' => 54, 'generic' => 'DOCK'));
+        $this->addCmd('localiser', 'Localiser', 'action', 'other', array('order' => 55));
         $this->addCmd('acquitter', 'Acquitter le message', 'action', 'other', array('order' => 56));
 
         $this->addCmd('regler_aspiration', 'Régler la puissance', 'action', 'select',
@@ -1676,7 +1731,7 @@ class dreamebe extends eqLogic {
              * sauvegarde défairait le choix d'un utilisateur qui aurait préféré
              * un autre affichage. */
             $this->addCmd('carte', 'Carte', 'info', 'string',
-                          array('order' => 133, 'visible' => 1, 'template' => 'dreamebe::dreamebeMap'));
+                          array('order' => 133, 'template' => 'dreamebe::dreamebeMap'));
         }
 
         /* --- Propriétés secondaires ------------------------------------ */
@@ -1867,7 +1922,8 @@ class dreamebe extends eqLogic {
              * Ne s'applique qu'à la création : ce que l'utilisateur a réglé
              * ensuite lui appartient.
              */
-            $cmd->setIsVisible(isset($_options['visible']) ? $_options['visible'] : 0);
+            $cmd->setIsVisible(isset($_options['visible']) ? $_options['visible']
+                               : self::defaultVisibility($_logicalId));
             $cmd->setIsHistorized(isset($_options['historize']) ? $_options['historize'] : 0);
         }
         /*
@@ -1923,304 +1979,6 @@ class dreamebe extends eqLogic {
         }
         $cmd->save();
         return $cmd;
-    }
-
-    /* ------------------------------------------------------------------ *
-     * Tuile du tableau de bord
-     * ------------------------------------------------------------------ */
-
-    /*
-     * Ce que la tuile montre, et ce qu'elle laisse de côté.
-     *
-     * Un robot expose ici une centaine de commandes. Les afficher toutes
-     * produisait un pavé d'une centaine d'étiquettes où l'essentiel — que fait
-     * le robot, et combien lui reste-t-il de batterie — se perdait au milieu de
-     * « Premier nettoyage » et « Filtre du réservoir ».
-     *
-     * Le coeur prévoit ce cas : il détecte par réflexion qu'un plugin redéfinit
-     * toHtml(), et lui laisse alors composer le contenu. On garde son habillage
-     * — nom, lien, badge d'alerte, graphique de fond — et on ne remplace que le
-     * bloc des commandes. L'utilisateur qui préfère la présentation d'origine la
-     * retrouve en décochant « Widget » dans la configuration avancée de
-     * l'équipement ; c'est pour ce cas que la visibilité des commandes reste
-     * réglée avec soin.
-     */
-    public function toHtml($_version = 'dashboard') {
-        try {
-            $replace = $this->preToHtml($_version);
-            if (!is_array($replace)) {
-                return $replace;
-            }
-            $version = jeedom::versionAlias($_version);
-            $replace['#calledFrom#'] = __CLASS__;
-            $replace['#eqLogic_class#'] = 'eqLogic_layout_default';
-            $replace['#cmd#'] = $this->widgetContent($replace);
-
-            if (!isset(self::$_templateArray[$version])) {
-                self::$_templateArray[$version] = getTemplate('core', $version, 'eqLogic');
-            }
-            return $this->postToHtml($_version, template_replace($replace, self::$_templateArray[$version]));
-        } catch (Throwable $e) {
-            /*
-             * Une tuile qui lève emporte le tableau de bord entier, pas
-             * seulement la sienne. Mieux vaut la présentation d'origine que
-             * plus de tableau de bord du tout.
-             */
-            log::add('dreamebe', 'error', $this->getHumanName() . ' : tuile non rendue ('
-                     . $e->getMessage() . '), présentation par défaut.');
-            return parent::toHtml($_version);
-        }
-    }
-
-    /* La valeur d'une commande, ou null si elle n'existe pas encore. */
-    private function widgetValue($_logicalId) {
-        $cmd = $this->getCmd(null, $_logicalId);
-        if (!is_object($cmd)) {
-            return null;
-        }
-        $value = $cmd->execCmd();
-        return ($value === '' ) ? null : $value;
-    }
-
-    private function widgetId($_logicalId) {
-        $cmd = $this->getCmd(null, $_logicalId);
-        return is_object($cmd) ? $cmd->getId() : null;
-    }
-
-    private function widgetContent($_replace) {
-        $uid = isset($_replace['#uid#']) ? $_replace['#uid#'] : $this->getId();
-        $echappe = function ($_texte) {
-            return htmlspecialchars((string) $_texte, ENT_QUOTES, 'UTF-8');
-        };
-
-        $etat = $this->widgetValue('etat');
-        $batterie = $this->widgetValue('batterie');
-        $erreurCode = (int) $this->widgetValue('code_erreur');
-        $erreur = $this->widgetValue('erreur');
-        $enLigne = $this->widgetValue('en_ligne');
-        $actif = $this->widgetValue('en_activite');
-
-        /*
-         * La pastille dit en un coup d'oeil ce qu'il faut savoir. L'ordre des
-         * tests est celui de l'urgence : une panne prime sur tout, un robot
-         * injoignable prime sur son dernier état connu.
-         */
-        $ton = 'repos';
-        if ($enLigne !== null && (int) $enLigne === 0) {
-            $ton = 'absent';
-        } elseif ($erreurCode > 0 && !dreamebeSpec::isWarning($erreurCode)) {
-            $ton = 'panne';
-        } elseif ($erreurCode > 0) {
-            $ton = 'alerte';
-        } elseif ((int) $this->widgetValue('en_charge') === 1) {
-            $ton = 'charge';
-        } elseif ((int) $actif === 1) {
-            $ton = 'actif';
-        }
-
-        $html = '<div class="dreameTile" data-uid="' . $echappe($uid) . '" data-ton="' . $ton . '">';
-
-        /* --- État et batterie ------------------------------------------- */
-        $html .= '<div class="dreameHead">';
-        $html .= '<span class="dreameDot"></span>';
-        $html .= '<span class="dreameState" data-role="etat">'
-               . $echappe($etat !== null ? $etat : __('État inconnu', __FILE__)) . '</span>';
-        $html .= '</div>';
-
-        if ($batterie !== null) {
-            $niveau = max(0, min(100, (int) $batterie));
-            $html .= '<div class="dreameBat">';
-            $html .= '<span class="dreameGauge"><i data-role="jauge" style="width:' . $niveau . '%"></i></span>';
-            $html .= '<span class="dreameBatTxt" data-role="batterie">' . $niveau . ' %</span>';
-            $html .= '</div>';
-        }
-
-        /* --- Chiffres du nettoyage en cours ------------------------------ */
-        $chiffres = array();
-        $aucun = true;
-        foreach (array('duree' => 'min', 'surface' => 'm²', 'progression' => '%') as $id => $unite) {
-            if ($this->widgetId($id) === null) {
-                continue;
-            }
-            $valeur = (int) $this->widgetValue($id);
-            $montre = ($valeur > 0);
-            $aucun = $aucun && !$montre;
-            /*
-             * Toujours présent, masqué si nul. Ne pas l'écrire du tout
-             * priverait le script d'un élément à remplir quand le nettoyage
-             * démarre : le chiffre n'apparaîtrait qu'au rechargement de la page.
-             */
-            $chiffres[] = '<span data-role="' . $id . '"' . ($montre ? '' : ' data-vide style="display:none"')
-                        . '>' . $valeur . ' ' . $unite . '</span>';
-        }
-        $html .= '<div class="dreameFigures"' . ($aucun ? ' style="display:none"' : '') . '>'
-               . implode('<em>·</em>', $chiffres) . '</div>';
-
-        /* --- Ce qui ne va pas -------------------------------------------- */
-        $message = '';
-        if ($enLigne !== null && (int) $enLigne === 0) {
-            $message = __('Robot injoignable', __FILE__);
-        } elseif ($erreurCode > 0 && $erreur !== null) {
-            $message = $erreur;
-        }
-        $html .= '<div class="dreameAlert"' . ($message === '' ? ' style="display:none"' : '') . '>'
-               . '<i class="fas fa-exclamation-triangle"></i> <span data-role="alerte">'
-               . $echappe($message) . '</span></div>';
-
-        /* --- Les gestes du quotidien ------------------------------------- */
-        $boutons = array(
-            'demarrer' => array('fa-play', __('Démarrer', __FILE__)),
-            'pause' => array('fa-pause', __('Pause', __FILE__)),
-            'arreter' => array('fa-stop', __('Arrêter', __FILE__)),
-            'retour_station' => array('fa-home', __('Retourner à la station', __FILE__)),
-            'localiser' => array('fa-bullhorn', __('Localiser', __FILE__)),
-        );
-        $actions = '';
-        foreach ($boutons as $logicalId => $bouton) {
-            $id = $this->widgetId($logicalId);
-            if ($id === null) {
-                continue;
-            }
-            $actions .= '<a class="dreameBtn" data-cmd="' . $id . '" title="' . $echappe($bouton[1]) . '">'
-                      . '<i class="fas ' . $bouton[0] . '"></i></a>';
-        }
-        if ($actions !== '') {
-            $html .= '<div class="dreameActions">' . $actions . '</div>';
-        }
-
-        /* --- Les pièces, s'il y en a -------------------------------------- */
-        $puces = '';
-        foreach ($this->rooms() as $room) {
-            $id = $this->widgetId('room::' . $room['id']);
-            if ($id === null) {
-                continue;
-            }
-            $puces .= '<a class="dreameRoom" data-cmd="' . $id . '" title="'
-                    . $echappe(__('Nettoyer', __FILE__) . ' ' . $room['name']) . '">'
-                    . $echappe($room['name']) . '</a>';
-        }
-        if ($puces !== '') {
-            $html .= '<div class="dreameRooms">' . $puces . '</div>';
-        }
-
-        $html .= '</div>';
-        return $html . $this->widgetScript($uid);
-    }
-
-    /*
-     * La feuille de style et les mises à jour en direct.
-     *
-     * Le CSS d'un plugin n'est pas chargé sur le tableau de bord : la tuile doit
-     * se suffire à elle-même, et n'est posée qu'une fois pour toutes les tuiles
-     * du plugin. Aucune couleur en dur hormis les cinq tons d'état, qui
-     * reprennent les variables d'alerte du thème.
-     */
-    private function widgetScript($_uid) {
-        $roles = array();
-        foreach (array('etat', 'batterie', 'duree', 'surface', 'progression',
-                       'erreur', 'code_erreur', 'en_ligne', 'en_activite', 'en_charge') as $logicalId) {
-            $id = $this->widgetId($logicalId);
-            if ($id !== null) {
-                $roles[$logicalId] = $id;
-            }
-        }
-
-        $script = '<script>(function(){';
-        $script .= 'if(!document.getElementById("dreameTileCss")){';
-        $script .= 'var s=document.createElement("style");s.id="dreameTileCss";s.textContent=';
-        $script .= json_encode(implode('', array(
-            /* Le conteneur du coeur est un flex qui répartit et centre ses enfants : on réclame explicitement la ligne entière et l'alignement à gauche, sans quoi la tuile serait centrée et rétrécie. */
-            '.dreameTile{display:flex;flex-direction:column;gap:6px;flex:1 1 100%;min-width:0;padding:2px 6px 6px;text-align:left}',
-            '.dreameHead{display:flex;align-items:center;gap:7px;min-width:0}',
-            /* La pastille porte l'information la plus dense de la tuile : une
-               couleur, lisible de loin, avant même d'avoir lu un mot. */
-            '.dreameDot{flex:0 0 auto;width:9px;height:9px;border-radius:50%;background:var(--txt-color);opacity:.45}',
-            '.dreameTile[data-ton="actif"] .dreameDot{background:var(--al-success-color);opacity:1;animation:dreamePulse 2s ease-in-out infinite}',
-            '.dreameTile[data-ton="charge"] .dreameDot{background:var(--al-info-color);opacity:1}',
-            '.dreameTile[data-ton="alerte"] .dreameDot{background:var(--al-warning-color);opacity:1}',
-            '.dreameTile[data-ton="panne"] .dreameDot{background:var(--al-danger-color);opacity:1}',
-            '.dreameTile[data-ton="absent"] .dreameDot{background:var(--txt-color);opacity:.25}',
-            '@keyframes dreamePulse{0%,100%{opacity:1}50%{opacity:.35}}',
-            '.dreameState{font-size:1.05em;line-height:1.25;font-weight:500;color:var(--txt-color);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
-            '.dreameBat{display:flex;align-items:center;gap:7px}',
-            /* Une jauge plutôt qu\'un pourcentage seul : on lit un niveau sans
-               avoir à interpréter un nombre. */
-            '.dreameGauge{flex:1 1 auto;height:5px;border-radius:3px;background:var(--txt-color);opacity:.18;position:relative;overflow:hidden}',
-            '.dreameGauge i{position:absolute;left:0;top:0;bottom:0;background:var(--txt-color);border-radius:3px}',
-            '.dreameBatTxt{flex:0 0 auto;font-size:.8em;opacity:.75;color:var(--txt-color)}',
-            '.dreameFigures{font-size:.8em;opacity:.7;color:var(--txt-color)}',
-            '.dreameFigures em{opacity:.4;font-style:normal;margin:0 4px}',
-            '.dreameAlert{font-size:.8em;line-height:1.3;color:var(--al-danger-color)}',
-            '.dreameTile[data-ton="alerte"] .dreameAlert{color:var(--al-warning-color)}',
-            '.dreameTile[data-ton="absent"] .dreameAlert{color:var(--txt-color);opacity:.6}',
-            '.dreameActions{display:flex;gap:4px;margin-top:2px}',
-            '.dreameBtn{flex:1 1 0;display:flex;align-items:center;justify-content:center;height:30px;',
-            'border-radius:var(--border-radius);background:var(--txt-color);color:var(--background-color);',
-            'opacity:.72;cursor:pointer;transition:opacity .15s}',
-            '.dreameBtn:hover{opacity:1;color:var(--background-color)}',
-            '.dreameRooms{display:flex;flex-wrap:wrap;gap:4px}',
-            /* Les pièces sont des raccourcis, pas des boutons principaux :
-               elles s\'effacent visuellement tant qu\'on ne les survole pas. */
-            '.dreameRoom{font-size:.74em;line-height:1;padding:4px 7px;border-radius:999px;',
-            'border:1px solid var(--txt-color);color:var(--txt-color);opacity:.55;cursor:pointer;',
-            'white-space:nowrap;transition:opacity .15s}',
-            '.dreameRoom:hover{opacity:1;text-decoration:none}',
-        )));
-        $script .= ';document.head.appendChild(s);}';
-
-        $script .= 'var t=document.querySelector(\'.eqLogic[data-eqLogic_uid="' . $_uid . '"] .dreameTile\');';
-        $script .= 'if(!t){return;}';
-        /* Un ordre part au clic : le coeur se charge du reste, y compris du
-           retour d'erreur. */
-        $script .= 't.querySelectorAll("[data-cmd]").forEach(function(a){a.addEventListener("click",function(e){';
-        $script .= 'e.preventDefault();jeedom.cmd.execute({id:a.getAttribute("data-cmd")});});});';
-
-        $script .= 'var r=' . json_encode($roles) . ';';
-        /*
-         * Le ton de la pastille se déduit de quatre valeurs à la fois. Partir
-         * d'un état vide ferait retomber la tuile sur « au repos » dès la
-         * première mise à jour reçue, quelle qu'elle soit — un robot en plein
-         * nettoyage se serait éteint à l'écran sans raison.
-         */
-        $initial = array();
-        foreach (array_keys($roles) as $logicalId) {
-            $valeur = $this->widgetValue($logicalId);
-            $initial[$logicalId] = ($valeur === null) ? '' : (string) $valeur;
-        }
-        $script .= 'var v=' . json_encode($initial) . ';';
-        /* Le ton de la pastille dépend de quatre valeurs à la fois : il est
-           recalculé à chaque changement, et non déduit d\'une seule. */
-        $script .= 'function ton(){';
-        $script .= 'if(v.en_ligne==="0"||v.en_ligne===0){return "absent";}';
-        $script .= 'var c=parseInt(v.code_erreur||0,10);';
-        $script .= 'if(c>0&&!(' . json_encode(array_map('intval', dreamebeSpec::$warningCodes)) . '.indexOf(c)>=0)){return "panne";}';
-        $script .= 'if(c>0){return "alerte";}';
-        $script .= 'if(v.en_charge==="1"||v.en_charge===1){return "charge";}';
-        $script .= 'if(v.en_activite==="1"||v.en_activite===1){return "actif";}';
-        $script .= 'return "repos";}';
-        $script .= 'function peindre(){';
-        $script .= 't.setAttribute("data-ton",ton());';
-        $script .= 'var a=t.querySelector(".dreameAlert"),m=t.querySelector(\'[data-role="alerte"]\');';
-        $script .= 'if(a&&m){var texte=(v.en_ligne==="0"||v.en_ligne===0)?' . json_encode(__('Robot injoignable', __FILE__))
-                 . ':((parseInt(v.code_erreur||0,10)>0&&v.erreur)?v.erreur:"");';
-        $script .= 'm.textContent=texte;a.style.display=texte?"":"none";}';
-        $script .= 'var f=t.querySelector(".dreameFigures");';
-        $script .= 'if(f){var vide=!f.querySelector("[data-role]:not([data-vide])");f.style.display=vide?"none":"";}}';
-
-        $script .= 'Object.keys(r).forEach(function(k){jeedom.cmd.addUpdateFunction(r[k],function(o){';
-        $script .= 'v[k]=o.value;';
-        $script .= 'var e=t.querySelector(\'[data-role="\'+k+\'"]\');';
-        $script .= 'if(e){';
-        $script .= 'if(k==="batterie"){e.textContent=parseInt(o.value,10)+" %";';
-        $script .= 'var g=t.querySelector(\'[data-role="jauge"]\');';
-        $script .= 'if(g){g.style.width=Math.max(0,Math.min(100,parseInt(o.value,10)))+"%";}}';
-        $script .= 'else if(k==="duree"){e.textContent=parseInt(o.value,10)+" min";e.toggleAttribute("data-vide",!(parseInt(o.value,10)>0));e.style.display=parseInt(o.value,10)>0?"":"none";}';
-        $script .= 'else if(k==="surface"){e.textContent=parseInt(o.value,10)+" m²";e.toggleAttribute("data-vide",!(parseInt(o.value,10)>0));e.style.display=parseInt(o.value,10)>0?"":"none";}';
-        $script .= 'else if(k==="progression"){e.textContent=parseInt(o.value,10)+" %";e.toggleAttribute("data-vide",!(parseInt(o.value,10)>0));e.style.display=parseInt(o.value,10)>0?"":"none";}';
-        $script .= 'else{e.textContent=o.value;}}';
-        $script .= 'peindre();});});';
-        $script .= '})();</script>';
-        return $script;
     }
 
     /* ------------------------------------------------------------------ *

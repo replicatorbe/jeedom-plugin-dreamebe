@@ -69,11 +69,13 @@ not supported.
 - Jeedom generic types on the main commands — battery, battery charging, fan
   speed and its state, return to dock and dock state — which widgets, object
   summaries and voice assistants recognise.
-- A purpose-built dashboard tile: coloured state dot, battery gauge, figures of
-  the current cleaning, error message, five buttons and one chip per room, all
-  updated live. Commands are now created hidden save about ten, which changes
-  nothing to what a user has already set; the original presentation remains
-  available by unticking "Widget".
+- A dashboard that sticks to the essentials: nineteen visible commands on a robot
+  with six rooms — state, battery, error, station, map, the five everyday orders,
+  the three settings one changes before starting a cleaning, and one command per
+  room. The rest is created hidden, with nothing lost: those commands are still
+  kept up to date and usable in scenarios. Every tile carries its name, because
+  an unlabelled icon does not say that "Stop" interrupts the cleaning where the
+  robot stands while "Return to the dock" sends it back to charge.
 - A Health page telling whether the account is configured, how long the session
   remains open and when each robot was last read.
 
