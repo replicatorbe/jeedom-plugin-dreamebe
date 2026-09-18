@@ -198,14 +198,69 @@ configuration and test. Each command's internal identifier — the one used in t
 tables below — appears as a tooltip on its row, which saves looking it up
 elsewhere when writing a scenario.
 
+## The dashboard tile
+
+A robot exposes about a hundred commands here. Shown all together, they drowned
+what matters — what the robot is doing, and how much battery it has left — among
+"First cleaning" and "Tank filter". Jeedom's core provides for this case: it
+detects by reflection that a plugin composes its own tile, and hands it the
+contents. The plugin keeps the core's frame — the name, the link to the device,
+the alert badge, the background graph — and replaces only the block of commands.
+
+From top to bottom, the tile shows:
+
+- a **coloured dot** followed by the state in plain words;
+- a **battery gauge** with its percentage;
+- the **figures of the current cleaning** — time, area, progress — hidden while
+  they are zero, that is, outside a cleaning;
+- a **message** when the robot is unreachable or in error;
+- a row of **five buttons**: start, pause, stop, return to the dock, locate;
+- one **clickable chip per room**, which starts cleaning that room.
+
+The dot takes five tones, in this order of priority:
+
+| Tone | When |
+|---|---|
+| Pale grey | The robot is unreachable. |
+| Red | Robot fault. |
+| Orange | Station warning: full bin, tank to empty. |
+| Blue | Charging. |
+| Green, pulsing | Active. |
+| Grey | Idle. |
+
+The order is that of urgency, and it matters: a fault takes precedence over
+everything else, and an unreachable robot takes precedence over its last known
+state — showing "Vacuuming" for a machine the cloud can no longer see would be
+the surest way to believe it is at work while it is unplugged.
+
+The tile updates **live**, through the core's mechanism: the state, the battery
+and the cleaning figures change before your eyes, with no page reload.
+
+Anyone who prefers the original presentation gets it back by unticking **Widget**
+in the device's advanced configuration. It is for that case that command
+visibility was revised, as described just below.
+
+Finally, if rendering the tile fails, the plugin falls back on the core's
+presentation and writes the reason to its log. This is not decorative caution: on
+a dashboard, a tile that throws takes all the others down with it.
+
 ## The commands
 
 The internal identifiers below are the ones to use in scenarios and API calls.
 They are frozen: they will not change from one version to the next.
 
-Commands marked "hidden" are created but invisible on the dashboard. They are
-kept up to date like the others; one tick box in the Commands tab is enough to
-show one. Without that, a single robot would fill a whole screen with tiles.
+**Commands are created hidden, save about ten.** Visible are the state (`etat`),
+activity (`en_activite`), battery (`batterie`), error (`erreur`), the map
+(`carte`) and the five main orders (`demarrer`, `pause`, `arreter`,
+`retour_station`, `localiser`). The tile itself shows what matters regardless of
+that flag: it only serves whoever goes back to the original presentation, and
+there too ten lines beat a hundred. All hidden commands are kept up to date like
+the others, and one tick box in the Commands tab is enough to show one.
+
+This choice applies only to **newly created** commands: what a user has set is
+theirs and is never redefined. In the tables below, the "hidden" note marks the
+raw values that duplicate a readable label, and that are only of interest for a
+computation in a scenario.
 
 The main commands carry a Jeedom **generic type**: battery (`batterie`), battery
 charging (`en_charge`), fan speed (`regler_aspiration`) and its state

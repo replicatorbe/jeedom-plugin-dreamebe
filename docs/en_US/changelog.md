@@ -69,6 +69,11 @@ not supported.
 - Jeedom generic types on the main commands — battery, battery charging, fan
   speed and its state, return to dock and dock state — which widgets, object
   summaries and voice assistants recognise.
+- A purpose-built dashboard tile: coloured state dot, battery gauge, figures of
+  the current cleaning, error message, five buttons and one chip per room, all
+  updated live. Commands are now created hidden save about ten, which changes
+  nothing to what a user has already set; the original presentation remains
+  available by unticking "Widget".
 - A Health page telling whether the account is configured, how long the session
   remains open and when each robot was last read.
 

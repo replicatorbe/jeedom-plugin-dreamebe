@@ -74,6 +74,12 @@ protocole et ne sont pas gérés.
   en charge, vitesse de ventilateur et son état, retour à la base et état de la
   base — que les widgets, les résumés d'objet et les assistants vocaux savent
   reconnaître.
+- Une tuile de tableau de bord sur mesure : pastille d'état colorée, jauge de
+  batterie, chiffres du nettoyage en cours, message d'erreur, cinq boutons et une
+  puce par pièce, le tout mis à jour en direct. Les commandes sont désormais
+  créées masquées sauf une dizaine, ce qui ne change rien à ce qu'un utilisateur
+  a déjà réglé ; la présentation d'origine reste disponible en décochant
+  « Widget ».
 - Une page Santé qui dit si le compte est renseigné, jusqu'à quand la session est
   ouverte et quand chaque robot a été lu pour la dernière fois.
 

@@ -460,7 +460,9 @@
     "Anti-calcaire": "Scale inhibitor",
     "%s (durée)": "%s (duration)",
     "Remettre à zéro : %s": "Reset: %s",
-    "État du détergent": "Detergent status"
+    "État du détergent": "Detergent status",
+    "Robot injoignable": "Robot unreachable",
+    "Nettoyer": "Clean"
   },
   "plugins/dreamebe/core/ajax/dreamebe.ajax.php": {
     "401 - Accès non autorisé": "401 - Unauthorized access",
