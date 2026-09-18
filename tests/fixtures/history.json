@@ -1,0 +1,33 @@
+{
+  "code": 0,
+  "success": true,
+  "data": {
+    "list": [
+      {
+        "id": "e1",
+        "createTime": 1789000000,
+        "history": "[{\"piid\":1,\"value\":0},{\"piid\":2,\"value\":48},{\"piid\":3,\"value\":37},{\"piid\":8,\"value\":1788996000},{\"piid\":13,\"value\":1}]"
+      },
+      {
+        "id": "e2",
+        "createTime": 1789200000000,
+        "value": [
+          { "piid": 1, "value": 0 },
+          { "piid": 2, "value": 12 },
+          { "piid": 3, "value": 9 },
+          { "piid": 13, "value": 0 }
+        ]
+      },
+      {
+        "id": "e3",
+        "createTime": 1788900000,
+        "history": "[{\"piid\":2,\"value\":61},{\"piid\":3,\"value\":52},{\"piid\":8,\"value\":1788890000}]"
+      },
+      {
+        "id": "e4",
+        "createTime": 0,
+        "history": "pas du json"
+      }
+    ]
+  }
+}

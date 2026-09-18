@@ -1,0 +1,62 @@
+{
+  "code": 0,
+  "success": true,
+  "msg": "操作成功",
+  "data": {
+    "page": {
+      "records": [
+        {
+          "id": "1001",
+          "did": "790160690",
+          "model": "dreame.vacuum.r2579a",
+          "ver": "4.3.9_1782",
+          "customName": "Rez-de-chaussée",
+          "property": "{\"iotId\":\"ZG9ja2VyMTIz\",\"lwt\":1,\"mac\":\"\"}",
+          "mac": "7",
+          "vendor": "ali",
+          "master": true,
+          "masterUid": "88001122",
+          "bindDomain": "10000.mt.eu.iot.dreame.tech:19973",
+          "sharedStatus": 1,
+          "updateTime": "2026-06-07 12:03:09",
+          "deviceInfo": {
+            "productId": "10279",
+            "model": "dreame.vacuum.r2579a",
+            "displayName": "L40 Ultra AE",
+            "status": "Live"
+          },
+          "online": true,
+          "latestStatus": 21,
+          "battery": 100
+        },
+        {
+          "id": "1002",
+          "did": "790160691",
+          "model": "dreame.vacuum.r2492a",
+          "ver": "4.3.9_1752",
+          "customName": "",
+          "property": "",
+          "master": false,
+          "masterUid": "88009988",
+          "bindDomain": "10000.mt.eu.iot.dreame.tech:19973",
+          "deviceInfo": {
+            "model": "dreame.vacuum.r2492a",
+            "displayName": "L40 Ultra"
+          },
+          "online": false,
+          "latestStatus": 6,
+          "battery": 62
+        },
+        {
+          "id": "1003",
+          "model": "dreame.vacuum.r2492b",
+          "deviceInfo": { "displayName": "Fiche sans did" }
+        }
+      ],
+      "total": "3",
+      "size": "100",
+      "current": "1",
+      "pages": "1"
+    }
+  }
+}

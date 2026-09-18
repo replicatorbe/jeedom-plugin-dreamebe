@@ -1,0 +1,13 @@
+# Exclusions propres au plugin dreamebe, ajoutées à celles de deploy-plugin.sh.
+# Un motif rsync par ligne ; les lignes vides et celles commençant par # sont
+# ignorées par --exclude-from.
+
+# Le jeu d'essai n'existe que pour le développement : il rejoue des fixtures
+# JSON depuis le dépôt et n'a rien à faire dans la racine web.
+tests/
+
+# Les cartes rendues appartiennent à l'installation, pas au dépôt. Le
+# déploiement efface ce qui n'existe pas dans la source : sans cette exclusion,
+# chaque mise à jour du plugin supprimerait les images, et les tuiles de carte
+# afficheraient une image cassée jusqu'au cycle suivant.
+data/maps/

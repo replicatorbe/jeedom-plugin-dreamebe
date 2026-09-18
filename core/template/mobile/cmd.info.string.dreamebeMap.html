@@ -1,0 +1,103 @@
+<div class="cmd cmd-widget #history#" data-type="info" data-subtype="string" data-template="dreamebeMap" data-state="wait" data-cmd_id="#id#" data-cmd_uid="#uid#" data-version="#version#" data-eqLogic_id="#eqLogic_id#">
+  <div class="title #hide_name#">
+    <div class="cmdName">#name_display#</div>
+  </div>
+  <div class="content">
+    <div class="dreameMessage"></div>
+    <a class="dreameFrame" target="_blank" rel="noopener">
+      <img class="dreameImg" alt="">
+    </a>
+  </div>
+  <div class="timeCmd label label-default #history#" data-type="info"></div>
+  <template>
+    <div>time : duration|date ({{Affiche la durée ou la date de la dernière carte}})</div>
+  </template>
+  <script>
+    (function () {
+      /* Une seule feuille de style pour toutes les tuiles du plugin, posée au
+         premier rendu. Le CSS d'un plugin n'est pas chargé sur le dashboard, et
+         les règles .content du coeur n'existent pas côté mobile : le gabarit
+         doit se suffire à lui-même. Aucune couleur en dur, tout vient du thème. */
+      if (!document.getElementById('dreamebeWidgetCss')) {
+        var css = document.createElement('style')
+        css.id = 'dreamebeWidgetCss'
+        css.textContent = [
+          '.cmd-widget[data-template="dreamebeMap"]{display:flex;flex-direction:column;align-items:center;width:100%}',
+          '.cmd-widget[data-template="dreamebeMap"] .cmdName{font-size:12px;line-height:16px;font-weight:400;color:var(--txt-color)}',
+          '.cmd-widget[data-template="dreamebeMap"] .content{display:flex;flex-direction:column;align-items:stretch;width:100%;padding:0 6px 4px}',
+
+          /* La carte est dessinée sur un fond transparent : sans couleur dessous,
+             elle serait illisible sur un thème clair comme sur un thème sombre.
+             object-fit: contain, parce qu'un plan rogné n'est plus un plan. */
+          '.cmd-widget[data-template="dreamebeMap"] .dreameFrame{display:block;width:100%;overflow:hidden;border-radius:var(--border-radius);line-height:0;background:var(--background-color)}',
+          '.cmd-widget[data-template="dreamebeMap"] .dreameImg{display:block;width:100%;height:auto;max-height:340px;object-fit:contain}',
+
+          /* Ni carte, ni erreur : la tuile le dit en toutes lettres. Une zone
+             vide se lirait comme un plan noir, donc comme un robot en panne. */
+          '.cmd-widget[data-template="dreamebeMap"] .dreameMessage{display:none;padding:10px 4px;font-size:.82em;line-height:1.4;text-align:center;color:var(--txt-color);opacity:.6}',
+          '.cmd-widget[data-template="dreamebeMap"][data-state="wait"] .dreameMessage,',
+          '.cmd-widget[data-template="dreamebeMap"][data-state="error"] .dreameMessage{display:block}',
+          '.cmd-widget[data-template="dreamebeMap"][data-state="wait"] .dreameFrame,',
+          '.cmd-widget[data-template="dreamebeMap"][data-state="error"] .dreameFrame{display:none}',
+          '.cmd-widget[data-template="dreamebeMap"][data-state="error"] .dreameMessage{opacity:1;color:var(--al-danger-color)}'
+        ].join('')
+        document.head.appendChild(css)
+      }
+
+      /*
+       * L'adresse est composée par le plugin et n'a qu'une forme possible. La
+       * vérifier ici coûte une ligne et ferme la porte à tout ce qui n'est pas
+       * une carte servie par le passe-plat — un « javascript: » glissé dans une
+       * valeur de commande, par exemple.
+       */
+      function dreamebeSafe(_url) {
+        return (typeof _url === 'string'
+             && /^plugins\/dreamebe\/core\/php\/map\.php\?id=\d+&t=\d+$/.test(_url))
+      }
+
+      jeedom.cmd.addUpdateFunction('#id#', function (_options) {
+        var cmd = document.querySelector('.cmd[data-cmd_uid="#uid#"]')
+        if (!is_object(cmd)) { return }
+
+        var link = cmd.querySelector('.dreameFrame')
+        var img = cmd.querySelector('.dreameImg')
+        var message = cmd.querySelector('.dreameMessage')
+        var url = _options.value
+
+        if (!dreamebeSafe(url)) {
+          cmd.setAttribute('data-state', 'wait')
+          message.textContent = '{{Aucune carte pour le moment.}}'
+          img.removeAttribute('src')
+          return
+        }
+
+        /* La carte peut n'avoir jamais été écrite alors que la commande porte
+           déjà une adresse. Le dire vaut mieux qu'une icône cassée, qu'on
+           prendrait pour une panne du robot. */
+        img.onerror = function () {
+          cmd.setAttribute('data-state', 'error')
+          message.textContent = '{{Carte introuvable — elle sera retéléchargée au prochain cycle.}}'
+        }
+        img.onload = function () {
+          cmd.setAttribute('data-state', 'ok')
+        }
+
+        link.setAttribute('href', url)
+        link.setAttribute('title', '{{Ouvrir la carte en grand}}')
+        img.setAttribute('src', url)
+
+        /* Le paramètre n'est pas toujours renseigné : sans ce contrôle, la
+           chaîne littérale « #time# » est transmise telle quelle, comme dans
+           tous les gabarits du coeur qui s'en gardent de la même façon. */
+        if ('#time#' == 'duration' || '#time#' == 'date') {
+          jeedom.cmd.displayDuration(_options.valueDate, cmd.querySelector('.timeCmd'), '#time#')
+        }
+      })
+
+      /* display_value reste vide : le coeur n'y échappe que les apostrophes, ce
+         qui ne protège pas d'une balise de fermeture. La tuile lit #value#, et
+         la contrôle avant d'en faire une adresse. */
+      jeedom.cmd.refreshValue([{ cmd_id: '#id#', value: '#value#', display_value: '', valueDate: '#valueDate#', collectDate: '#collectDate#', alertLevel: '#alertLevel#', unit: '#unite#' }])
+    })()
+  </script>
+</div>

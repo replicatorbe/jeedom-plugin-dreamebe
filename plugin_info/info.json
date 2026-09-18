@@ -1,0 +1,32 @@
+{
+    "id": "dreamebe",
+    "name": "Dreame",
+    "pluginVersion": "0.1",
+    "description": {
+        "fr_FR": "Pilotage des aspirateurs robots Dreame récents par le cloud DreameHome. Un compte, autant d'équipements Jeedom que de robots : état, batterie, erreurs, démarrage, pause, retour à la station, nettoyage par pièce, puissance d'aspiration et niveau d'eau, informations d'entretien des consommables, le tout utilisable dans les scénarios.",
+        "en_US": "Control of recent Dreame robot vacuums through the DreameHome cloud. One account, one Jeedom device per robot: state, battery, errors, start, pause, return to dock, room cleaning, suction power and water level, consumable maintenance figures, all usable in scenarios."
+    },
+    "licence": "AGPL",
+    "author": "sMug (Jérôme Fafchamps)",
+    "require": "4.4",
+    "requireOsVersion": "11",
+    "category": "automatisation",
+    "index": "dreamebe",
+    "hasDependency": 0,
+    "hasOwnDeamon": 0,
+    "maxDependancyInstallTime": 5,
+    "eventjs": 0,
+    "issue": "https://github.com/replicatorbe/jeedom-plugin-dreamebe/issues",
+    "documentation": "https://github.com/replicatorbe/jeedom-plugin-dreamebe/blob/master/docs/#language#/index.md",
+    "changelog": "https://github.com/replicatorbe/jeedom-plugin-dreamebe/blob/master/docs/#language#/changelog.md",
+    "language": [
+        "fr_FR",
+        "en_US"
+    ],
+    "compatibility": [
+        "smart",
+        "rpi",
+        "docker",
+        "diy"
+    ]
+}
