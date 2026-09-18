@@ -8,12 +8,12 @@ if (!isConnect('admin')) {
 		<legend><i class="fas fa-user"></i> {{Compte DreameHome}}</legend>
 
 		<div class="form-group">
-			<label class="col-lg-4 control-label">{{Adresse électronique}}</label>
+			<label class="col-lg-4 control-label">{{Identifiant du compte}}</label>
 			<div class="col-lg-3">
 				<input class="configKey form-control" data-l1key="username" placeholder="vous@exemple.com" />
 			</div>
 			<div class="col-lg-5">
-				<span class="help-block">{{Le compte de l'application DreameHome, pas un compte Xiaomi ni Mi Home : ce sont deux univers séparés, et un compte Mi Home sera refusé.}}</span>
+				<span class="help-block">{{Le compte de l'application DreameHome, pas un compte Xiaomi ni Mi Home : ce sont deux univers séparés, et un compte Mi Home sera refusé. C'est généralement l'adresse électronique. Si le compte a été créé avec Google ou Apple, c'est en revanche l'identifiant affiché dans le profil de l'application qu'il faut saisir, et non l'adresse — celle-ci est alors refusée.}}</span>
 			</div>
 		</div>
 

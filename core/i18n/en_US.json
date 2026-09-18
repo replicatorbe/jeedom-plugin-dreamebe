@@ -395,8 +395,6 @@
   "plugins/dreamebe/plugin_info/configuration.php": {
     "401 - Accès non autorisé": "401 - Unauthorized access",
     "Compte DreameHome": "DreameHome account",
-    "Adresse électronique": "Email address",
-    "Le compte de l'application DreameHome, pas un compte Xiaomi ni Mi Home : ce sont deux univers séparés, et un compte Mi Home sera refusé.": "The account of the DreameHome app, not a Xiaomi or Mi Home account: these are two separate worlds, and a Mi Home account will be rejected.",
     "Mot de passe": "Password",
     "Il est conservé dans la base de Jeedom. Le plugin ne s'en sert qu'à la première connexion : ensuite il renouvelle sa session avec un jeton, ce qui évite de solliciter l'authentification, dont le nombre de tentatives est limité côté Dreame.": "It is stored in the Jeedom database. The plugin only uses it for the first login: after that it renews its session with a token, which avoids calling authentication, where Dreame limits the number of attempts.",
     "Région": "Region",
@@ -438,7 +436,9 @@
     "aucun": "none",
     "Robots ajoutés": "Robots added",
     "Déjà connus": "Already known",
-    "Fermez cette fenêtre pour les voir apparaître dans la liste.": "Close this window to see them appear in the list."
+    "Fermez cette fenêtre pour les voir apparaître dans la liste.": "Close this window to see them appear in the list.",
+    "Identifiant du compte": "Account identifier",
+    "Le compte de l'application DreameHome, pas un compte Xiaomi ni Mi Home : ce sont deux univers séparés, et un compte Mi Home sera refusé. C'est généralement l'adresse électronique. Si le compte a été créé avec Google ou Apple, c'est en revanche l'identifiant affiché dans le profil de l'application qu'il faut saisir, et non l'adresse — celle-ci est alors refusée.": "The DreameHome app account, not a Xiaomi or Mi Home account: these are two separate worlds, and a Mi Home account will be rejected. It is usually the email address. If the account was created with Google or Apple, enter instead the identifier shown in the app profile, not the email address, which is rejected in that case."
   },
   "plugins/dreamebe/desktop/php/dreamebe.php": {
     "401 - Accès non autorisé": "401 - Unauthorized access",
