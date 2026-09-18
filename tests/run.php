@@ -164,6 +164,30 @@ verifie('deux appels, pas un', count($api->requests), 2);
 verifie('le second est bien un mot de passe',
         strpos($api->requests[1]['body'], 'grant_type=password') !== false, true);
 
+/*
+ * Jeedom rend la configuration d'un plugin DÉJÀ décodée quand elle ressemble à
+ * du JSON : une session enregistrée revient en tableau, pas en chaîne. Lui
+ * appliquer json_decode() lève une TypeError fatale en PHP 8 — et le défaut ne
+ * se voit qu'à partir de la DEUXIÈME connexion, la première trouvant une valeur
+ * vide. C'est arrivé en production.
+ */
+echo "\n== Session restaurée ==\n";
+$attendu = array('token' => 'J', 'refresh_token' => 'R', 'expires_at' => 42,
+                 'uid' => '1', 'tenant' => '000000', 'region' => 'eu');
+verifie('session rendue en tableau par le coeur',
+        dreamebeApi::normalizeSession($attendu), $attendu);
+verifie('session rendue en chaîne JSON',
+        dreamebeApi::normalizeSession(json_encode($attendu)), $attendu);
+verifie('aucune session enregistrée', dreamebeApi::normalizeSession(''), null);
+verifie('valeur absente', dreamebeApi::normalizeSession(null), null);
+verifie('valeur illisible', dreamebeApi::normalizeSession('pas du json'), null);
+verifie('valeur JSON non tabulaire', dreamebeApi::normalizeSession('"texte"'), null);
+
+$api = nouveauClient();
+$api->setSession(dreamebeApi::normalizeSession($attendu));
+verifie('session restaurée depuis un tableau', $api->getSession()['token'], 'J');
+verifie('région restaurée avec elle', $api->getRegion(), 'eu');
+
 /* ====================================================================== *
  * Découverte des robots
  * ====================================================================== */

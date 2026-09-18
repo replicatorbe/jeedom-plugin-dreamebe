@@ -68,8 +68,8 @@ class dreamebe extends eqLogic {
             log::add('dreamebe', $_level, dreamebeApi::redact($_message));
         });
 
-        $session = json_decode(config::byKey('session', 'dreamebe', ''), true);
-        if (is_array($session)) {
+        $session = dreamebeApi::normalizeSession(config::byKey('session', 'dreamebe', ''));
+        if ($session !== null) {
             $api->setSession($session);
         }
 
@@ -760,6 +760,37 @@ class dreamebe extends eqLogic {
      * différentiel, ou une carte de couverture Wi-Fi. */
     const FRAME_COMPLETE = 73;
 
+    /*
+     * Lit une propriété liée à la carte.
+     *
+     * L'image que le cloud garde du robot est interrogée EN PREMIER, et ce n'est
+     * pas une optimisation : sur les L40 Ultra AE, la propriété qui porte le nom
+     * de la carte courante n'est tout simplement PAS rendue quand on interroge
+     * le robot directement — le cloud, lui, la connaît, parce que le robot la
+     * lui pousse. Constaté sur deux machines : interrogation directe, rien ;
+     * lecture de l'ombre, la valeur attendue.
+     *
+     * L'interrogation directe reste en second, pour les modèles qui feraient
+     * l'inverse.
+     */
+    private function mapProperty($_name) {
+        $prop = dreamebeSpec::$properties[$_name];
+        $key = $prop[0] . '.' . $prop[1];
+
+        try {
+            $values = self::api()->shadowProperties($this->device(), array($prop));
+            if (isset($values[$key]) && $values[$key] !== '') {
+                return $values[$key];
+            }
+        } catch (dreamebeApiException $e) {
+            log::add('dreamebe', 'debug', $this->getHumanName() . ' : image du cloud indisponible pour '
+                     . $_name . ' (' . $e->getMessage() . ')');
+        }
+
+        $values = self::api()->getProperties($this->device(), array($prop));
+        return isset($values[$key]) ? $values[$key] : null;
+    }
+
     public function rooms() {
         $rooms = $this->getConfiguration('rooms', array());
         return is_array($rooms) ? $rooms : array();
@@ -774,13 +805,10 @@ class dreamebe extends eqLogic {
      */
     public function refreshRooms() {
         $device = $this->device();
-        $values = self::api()->getProperties($device, array(dreamebeSpec::$properties['map_list']));
-        $key = dreamebeSpec::$properties['map_list'][0] . '.' . dreamebeSpec::$properties['map_list'][1];
-        if (!isset($values[$key]) || $values[$key] === '') {
+        $list = $this->mapProperty('map_list');
+        if ($list === null || $list === '') {
             return false;
         }
-
-        $list = $values[$key];
         if (is_string($list)) {
             $list = json_decode($list, true);
         }
@@ -846,16 +874,11 @@ class dreamebe extends eqLogic {
      */
     public function refreshMap() {
         $device = $this->device();
-        $values = self::api()->getProperties($device, array(dreamebeSpec::$properties['object_name']));
-        $key = dreamebeSpec::$properties['object_name'][0] . '.' . dreamebeSpec::$properties['object_name'][1];
-        if (!isset($values[$key])) {
-            return false;
-        }
-
-        /* La valeur est tantôt une chaîne, tantôt une liste d'une chaîne selon
-         * le micrologiciel. Traiter les deux coûte trois lignes ; parier coûte
-         * une carte qui ne s'affiche jamais. */
-        $objectName = dreamebeMap::objectName($values[$key]);
+        /* La valeur est tantôt une chaîne, tantôt une liste, tantôt une chaîne
+         * contenant une liste JSON selon le micrologiciel. Traiter les trois
+         * coûte quelques lignes ; parier coûte une carte qui ne s'affiche
+         * jamais. */
+        $objectName = dreamebeMap::objectName($this->mapProperty('object_name'));
         if ($objectName === null) {
             return false;
         }
@@ -896,8 +919,38 @@ class dreamebe extends eqLogic {
             $this->checkAndUpdateCmd('orientation', $map['robot']['a']);
         }
 
+        /*
+         * L'image se dessine à partir de la carte SAUVEGARDÉE, pas de la carte
+         * courante — et c'est contre-intuitif, donc il faut le dire.
+         *
+         * La carte courante ne porte ni les noms de pièces ni leur voisinage, et
+         * sur ces machines ses pixels n'encodent pas les identifiants de la même
+         * façon : la dessiner telle quelle donne un plan d'un seul tenant, d'une
+         * seule couleur, où aucune pièce ne se distingue. Constaté.
+         *
+         * Or la carte courante EMBARQUE la carte sauvegardée, sous « rism ».
+         * On la décode donc au passage — sans téléchargement supplémentaire —
+         * et on lui greffe la position du robot, qui, elle, n'existe que dans la
+         * carte courante. Les deux partagent le même repère en millimètres,
+         * seule leur origine diffère : la conversion s'en charge.
+         */
+        $pourImage = $map;
+        if (!empty($map['json']['rism'])) {
+            try {
+                $sauvegardee = dreamebeMap::decode($map['json']['rism'],
+                                                   dreamebeMap::ivForModel($device['model']));
+                $sauvegardee['robot'] = $map['robot'];
+                $sauvegardee['charger'] = $map['charger'];
+                $pourImage = $sauvegardee;
+            } catch (dreamebeMapException $e) {
+                log::add('dreamebe', 'info', $this->getHumanName()
+                         . ' : carte sauvegardée jointe illisible, la carte courante sera dessinée '
+                         . 'sans distinction de pièces (' . $e->getMessage() . ')');
+            }
+        }
+
         $path = self::mapDir() . '/' . $this->getId() . '.png';
-        if (!dreamebeMapImage::render($map, $path)) {
+        if (!dreamebeMapImage::render($pourImage, $path)) {
             return false;
         }
         /* L'horodatage est celui du FICHIER, pas de l'instant : il empêche le
@@ -1631,8 +1684,9 @@ class dreamebe extends eqLogic {
             'advice' => $configured ? '' : __('Renseignez le compte dans la configuration du plugin.', __FILE__),
         );
 
-        $session = json_decode(config::byKey('session', 'dreamebe', ''), true);
-        $valid = is_array($session) && !empty($session['token']) && (int) $session['expires_at'] > time();
+        $session = dreamebeApi::normalizeSession(config::byKey('session', 'dreamebe', ''));
+        $valid = ($session !== null) && !empty($session['token'])
+              && (int) $session['expires_at'] > time();
         $rows[] = array(
             'test' => __('Session', __FILE__),
             'state' => $valid,

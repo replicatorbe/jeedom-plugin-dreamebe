@@ -184,6 +184,35 @@ class dreamebeApi {
      * ------------------------------------------------------------------ */
 
     /*
+     * Remet une session enregistrée sous forme de tableau, quelle que soit la
+     * forme sous laquelle elle revient.
+     *
+     * Jeedom range la configuration d'un plugin en base sous forme de texte,
+     * mais config::byKey() termine par is_json() : une valeur qui ressemble à du
+     * JSON est DÉCODÉE avant d'être rendue. Une session enregistrée par
+     * json_encode() revient donc en tableau, pas en chaîne — et lui appliquer
+     * json_decode() lève une TypeError fatale en PHP 8.
+     *
+     * Le piège est sournois parce qu'il ne se manifeste pas au premier essai :
+     * tant qu'aucune session n'existe, la clé rend une chaîne vide et tout va
+     * bien. Ce n'est qu'à partir de la première connexion réussie que chaque
+     * appel suivant meurt — y compris celui de la page Santé, dont le coeur
+     * n'attrape que les Exception et pas les Error.
+     */
+    public static function normalizeSession($_value) {
+        if (is_array($_value)) {
+            return $_value;
+        }
+        if (is_string($_value) && trim($_value) !== '') {
+            $decoded = json_decode($_value, true);
+            if (is_array($decoded)) {
+                return $decoded;
+            }
+        }
+        return null;
+    }
+
+    /*
      * Restaure une session enregistrée. Les champs absents sont ignorés : une
      * session partielle (par exemple un jeton de renouvellement seul, après une
      * mise à jour du plugin) doit rester exploitable plutôt que de tout jeter.
