@@ -21,6 +21,12 @@ protocole et ne sont pas gérés.
 - Plusieurs robots sur un compte donnent autant d'équipements indépendants.
 - Si le serveur signale que le compte vit dans une autre région, le plugin
   corrige le réglage tout seul.
+- Un compte refusé suspend l'interrogation automatique pendant une heure, au
+  lieu de retenter chaque minute au risque de faire bloquer le compte. Un
+  message le signale, la page Santé indique l'heure du prochain essai, et
+  **Tester le compte** passe outre.
+- Une panne ou une limitation de débit côté Dreame (HTTP 429 ou 5xx) n'est plus
+  prise pour un refus d'identifiants, et ne fait plus jeter le jeton de session.
 
 **Ce que le robot sait faire**
 

@@ -21,6 +21,12 @@ not supported.
 - Several robots on one account become as many independent devices.
 - If the server reports that the account lives in another region, the plugin
   corrects the setting by itself.
+- A rejected account suspends automatic polling for one hour, instead of
+  retrying every minute and risking an account lockout. A message reports it,
+  the Health page shows when the next attempt is due, and **Test the account**
+  bypasses the wait.
+- An outage or rate limit on Dreame's side (HTTP 429 or 5xx) is no longer
+  mistaken for rejected credentials, and no longer discards the session token.
 
 **What the robot can do**
 

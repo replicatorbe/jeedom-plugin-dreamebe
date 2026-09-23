@@ -172,7 +172,37 @@ class dreamebe extends eqLogic {
 
     public static function forgetSession() {
         config::save('session', '', 'dreamebe');
+        config::remove('auth_failure', 'dreamebe');
         self::$_api = null;
+    }
+
+    /*
+     * Un compte refusé suspend le cycle automatique pendant cette durée.
+     *
+     * Retenter chaque minute ne corrigera pas un mot de passe : cela ferait
+     * 1440 connexions refusées par jour sur un endpoint qui limite les essais,
+     * et finirait par faire bloquer le compte. Une heure laisse le temps de
+     * corriger, tout en reprenant seul si le refus venait du serveur.
+     */
+    const AUTH_BACKOFF = 3600;
+
+    /* Le dernier refus du compte, ou null : array('at' => …, 'message' => …). */
+    public static function authFailure() {
+        $failure = config::byKey('auth_failure', 'dreamebe', '');
+        if (is_string($failure)) {
+            $failure = json_decode($failure, true);
+        }
+        return (is_array($failure) && !empty($failure['at'])) ? $failure : null;
+    }
+
+    private static function recordAuthFailure($_message) {
+        /* Un message dans le centre de messages au premier refus, pas à chaque
+         * nouvel essai : l'utilisateur est prévenu une fois, pas harcelé. */
+        if (self::authFailure() === null) {
+            message::add('dreamebe', __('Compte DreameHome refusé, interrogation suspendue une heure :', __FILE__)
+                                     . ' ' . $_message);
+        }
+        config::save('auth_failure', json_encode(array('at' => time(), 'message' => (string) $_message)), 'dreamebe');
     }
 
     /* ------------------------------------------------------------------ *
@@ -186,8 +216,18 @@ class dreamebe extends eqLogic {
      * dans ce plugin ne suppose qu'il n'y en a qu'un.
      */
     public static function discover() {
-        $devices = self::api()->getDevices();
+        try {
+            $devices = self::api()->getDevices();
+        } catch (dreamebeApiException $e) {
+            if ($e->getCode() === dreamebeApiException::AUTH) {
+                self::recordAuthFailure($e->getMessage());
+            }
+            throw $e;
+        }
         self::saveSession();
+        if (self::authFailure() !== null) {
+            config::remove('auth_failure', 'dreamebe');
+        }
         return $devices;
     }
 
@@ -468,6 +508,12 @@ class dreamebe extends eqLogic {
         if (trim(config::byKey('username', 'dreamebe', '')) === '') {
             return;
         }
+        /* Compte refusé récemment : on attend. « Tester le compte » et la
+         * découverte, eux, passent outre — ce sont des gestes volontaires. */
+        $failure = self::authFailure();
+        if ($failure !== null && (time() - (int) $failure['at']) < self::AUTH_BACKOFF) {
+            return;
+        }
 
         /*
          * Un seul appel pour tous les robots : la liste des appareils rend
@@ -482,7 +528,8 @@ class dreamebe extends eqLogic {
             }
         } catch (dreamebeApiException $e) {
             if ($e->getCode() === dreamebeApiException::AUTH) {
-                log::add('dreamebe', 'error', __('Compte DreameHome refusé :', __FILE__) . ' ' . $e->getMessage());
+                log::add('dreamebe', 'error', __('Compte DreameHome refusé, nouvel essai dans une heure :', __FILE__)
+                                              . ' ' . $e->getMessage());
                 return;
             }
             /* Sans la liste, chaque robot serait interrogé un par un — c'est
@@ -2004,6 +2051,17 @@ class dreamebe extends eqLogic {
             'result' => $configured ? __('Renseigné', __FILE__) : __('À configurer', __FILE__),
             'advice' => $configured ? '' : __('Renseignez le compte dans la configuration du plugin.', __FILE__),
         );
+
+        $failure = self::authFailure();
+        if ($failure !== null) {
+            $rows[] = array(
+                'test' => __('Authentification', __FILE__),
+                'state' => false,
+                'result' => __('Refusée le', __FILE__) . ' ' . date('d/m H:i', $failure['at']),
+                'advice' => __('Corrigez le compte puis cliquez sur « Tester le compte ». Sinon, nouvel essai à', __FILE__)
+                          . ' ' . date('H:i', (int) $failure['at'] + self::AUTH_BACKOFF) . '.',
+            );
+        }
 
         $session = dreamebeApi::normalizeSession(config::byKey('session', 'dreamebe', ''));
         $valid = ($session !== null) && !empty($session['token'])

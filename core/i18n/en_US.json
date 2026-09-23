@@ -2,7 +2,11 @@
   "plugins/dreamebe/core/class/dreamebe.class.php": {
     "Le robot n'a répondu à aucune propriété : il est probablement éteint ou hors ligne. Rallumez-le puis relancez le sondage.": "The robot answered on no property at all: it is most likely switched off or offline. Turn it back on, then run the probe again.",
     "Le robot n'a répondu que partiellement : sondage ignoré pour ne pas perdre des commandes. Réessayez quand il sera disponible.": "The robot answered only partially: the probe was ignored so as not to lose commands. Try again when it is available.",
-    "Compte DreameHome refusé :": "DreameHome account rejected:",
+    "Compte DreameHome refusé, nouvel essai dans une heure :": "DreameHome account rejected, retrying in one hour:",
+    "Compte DreameHome refusé, interrogation suspendue une heure :": "DreameHome account rejected, polling suspended for one hour:",
+    "Authentification": "Authentication",
+    "Refusée le": "Rejected on",
+    "Corrigez le compte puis cliquez sur « Tester le compte ». Sinon, nouvel essai à": "Fix the account, then click “Test the account”. Otherwise, next attempt at",
     "Liste des robots indisponible, cycle reporté :": "Robot list unavailable, cycle postponed:",
     "Cycle d'actualisation :": "Polling cycle:",
     "Action inconnue :": "Unknown action:",
