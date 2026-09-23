@@ -84,7 +84,10 @@ not supported.
 - Full decoding of the robot's maps: this is the only place where room names
   exist, and therefore the prerequisite for room cleaning.
 - A deliberately plain PNG rendering — floor per room, walls, robot and dock —
-  cached on disk and served only to authenticated Jeedom users.
+  cached on disk and served only to authenticated Jeedom users. The maps
+  folder is closed with `Require all denied`: the former `Deny from all` rule
+  gave way to Jeedom's root `.htaccess`, which allows every PNG, and left floor
+  plans readable without a session. A robot's map is deleted with its device.
 - Robot position and heading in the map's coordinate system.
 
 **Under the hood**

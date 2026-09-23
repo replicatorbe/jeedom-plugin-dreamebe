@@ -25,9 +25,14 @@ function dreamebe_prepareData() {
             mkdir($dir, 0775, true);
         }
     }
+    /* Réécrit à chaque mise à jour, et en Require plutôt qu'en Deny : le
+     * FilesMatch du .htaccess racine de Jeedom autorise tous les png, et
+     * l'emporte sur un « Deny from all » de dossier. L'ancienne règle laissait
+     * donc les cartes lisibles sans session. */
     $htaccess = __DIR__ . '/../data/.htaccess';
-    if (!file_exists($htaccess)) {
-        file_put_contents($htaccess, "Order allow,deny\nDeny from all\n");
+    $rule = "Require all denied\n";
+    if (!file_exists($htaccess) || strpos(file_get_contents($htaccess), 'Require all denied') === false) {
+        file_put_contents($htaccess, $rule);
     }
 }
 

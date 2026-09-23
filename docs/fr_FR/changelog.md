@@ -91,7 +91,10 @@ protocole et ne sont pas gérés.
   noms des pièces, et donc la condition du nettoyage par pièce.
 - Rendu d'une image PNG volontairement sobre — sol par pièce, murs, robot et
   station — mise en cache sur le disque et servie aux seuls utilisateurs
-  authentifiés de Jeedom.
+  authentifiés de Jeedom. Le dossier des cartes est fermé par `Require all
+  denied` : l'ancienne règle `Deny from all` cédait devant celle du `.htaccess`
+  racine de Jeedom, qui autorise tous les PNG, et laissait les plans lisibles
+  sans session. La carte d'un robot est effacée avec son équipement.
 - Position et orientation du robot dans le repère de la carte.
 
 **Sous le capot**

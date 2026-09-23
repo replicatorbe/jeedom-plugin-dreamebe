@@ -1569,6 +1569,14 @@ class dreamebe extends eqLogic {
         $this->createCommands();
     }
 
+    /* La carte est le plan d'un logement : elle ne survit pas au robot. */
+    public function preRemove() {
+        $path = __DIR__ . '/../../data/maps/' . $this->getId() . '.png';
+        if ($this->getId() != '' && file_exists($path)) {
+            unlink($path);
+        }
+    }
+
     public function createCommands() {
         $this->_expected = array();
         $this->_usedNames = array();

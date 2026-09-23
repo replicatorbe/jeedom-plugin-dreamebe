@@ -1,2 +1,5 @@
-Order allow,deny
-Deny from all
+# Require et non Deny : le FilesMatch du .htaccess racine de Jeedom
+# (« Allow from all » sur png, jpg, txt…) passe après un Deny de dossier
+# et le neutralise. Require all denied, lui, tient. Les cartes passent par
+# core/php/map.php, qui contrôle la session et les droits.
+Require all denied
