@@ -164,6 +164,27 @@ verifie('deux appels, pas un', count($api->requests), 2);
 verifie('le second est bien un mot de passe',
         strpos($api->requests[1]['body'], 'grant_type=password') !== false, true);
 
+/* Un serveur en panne ne juge pas les identifiants : ni refus de compte, ni
+ * jeton de renouvellement jeté. Sinon, un incident chez Dreame suspendrait le
+ * plugin en accusant le mot de passe. */
+$api = nouveauClient();
+$api->answers[] = array('status' => 503, 'body' => '{"error":"unavailable"}');
+verifieLeve('panne du serveur d\'authentification', function () use ($api) { $api->login(); },
+            dreamebeApiException::NETWORK);
+
+$api = nouveauClient();
+$api->answers[] = array('status' => 429, 'body' => '');
+verifieLeve('débit limité à la connexion', function () use ($api) { $api->login(); },
+            dreamebeApiException::NETWORK);
+
+$api = nouveauClient();
+$api->setSession(array('token' => '', 'refresh_token' => 'BON', 'expires_at' => 0));
+$api->answers[] = array('status' => 502, 'body' => '<html>Bad Gateway</html>');
+verifieLeve('renouvellement pendant une panne', function () use ($api) { $api->login(); },
+            dreamebeApiException::NETWORK);
+verifie('jeton de renouvellement conservé', $api->getSession()['refresh_token'], 'BON');
+verifie('aucun repli sur le mot de passe', count($api->requests), 1);
+
 /*
  * Jeedom rend la configuration d'un plugin DÉJÀ décodée quand elle ressemble à
  * du JSON : une session enregistrée revient en tableau, pas en chaîne. Lui
@@ -312,6 +333,30 @@ $api->answers[] = array('status' => 200, 'body' => 'une page HTML d\'erreur');
 verifieLeve('réponse illisible signalée',
             function () use ($api, $robot) { $api->getProperties($robot, array(array(3, 1))); },
             dreamebeApiException::API);
+
+$api = nouveauClient();
+$api->setSession(array('token' => 'J', 'expires_at' => time() + 3600));
+$api->answers[] = array('status' => 503, 'body' => '{"status":503,"error":"Service Unavailable"}');
+verifieLeve('cloud en panne : erreur réseau, pas succès',
+            function () use ($api) { $api->getDevices(); },
+            dreamebeApiException::NETWORK);
+
+/* Une erreur HTTP sans code applicatif n'est pas un succès : sans ce contrôle,
+ * la liste des appareils reviendrait vide au lieu d'échouer. */
+$api = nouveauClient();
+$api->setSession(array('token' => 'J', 'expires_at' => time() + 3600));
+$api->answers[] = array('status' => 403, 'body' => '{"error":"Forbidden"}');
+verifieLeve('erreur HTTP sans code signalée',
+            function () use ($api) { $api->getDevices(); },
+            dreamebeApiException::API);
+
+/* L'absence d'accusé reste reconnue même sous un statut d'erreur. */
+$api = nouveauClient();
+$api->setSession(array('token' => 'J', 'expires_at' => time() + 3600));
+$api->answers[] = array('status' => 504, 'body' => '{"code":80001,"msg":"timeout"}');
+verifieLeve('absence d\'accusé sous un 504',
+            function () use ($api, $robot) { $api->getProperties($robot, array(array(3, 1))); },
+            dreamebeApiException::NOACK);
 
 /* Un robot dont la route est inconnue ne doit pas produire une URL fantaisiste. */
 $api = nouveauClient();

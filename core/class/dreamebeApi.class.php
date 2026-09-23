@@ -310,6 +310,16 @@ class dreamebeApi {
 
         $answer = $this->http('POST', $this->getApiUrl() . '/dreame-auth/oauth/token', $headers, $body);
 
+        /* Un serveur en panne ou qui demande de ralentir ne juge pas les
+         * identifiants. Le lire comme un refus ferait jeter un jeton de
+         * renouvellement valide, puis suspendre le plugin en accusant le mot de
+         * passe pour un simple incident chez Dreame. */
+        if (self::isTransient($answer['status'])) {
+            throw new dreamebeApiException('Authentification DreameHome indisponible (HTTP ' . $answer['status']
+                                           . '), nouvel essai au prochain cycle.',
+                                           dreamebeApiException::NETWORK);
+        }
+
         $data = json_decode($answer['body'], true);
         if (!is_array($data)) {
             throw new dreamebeApiException('Réponse d\'authentification illisible (HTTP ' . $answer['status'] . ').',
@@ -332,7 +342,7 @@ class dreamebeApi {
             }
             throw new dreamebeApiException(
                 'Authentification refusée par DreameHome' . ($description !== '' ? ' : ' . $description : '')
-                . '. Vérifiez l\'adresse électronique, le mot de passe et surtout la région du compte.',
+                . '. Vérifiez l\'identifiant, le mot de passe et surtout la région du compte.',
                 dreamebeApiException::AUTH
             );
         }
@@ -420,23 +430,39 @@ class dreamebeApi {
         }
 
         $data = json_decode($answer['body'], true);
+        $code = (is_array($data) && isset($data['code'])) ? (int) $data['code'] : 0;
+
+        /* 80001 et -8 : le cloud a transmis l'ordre mais n'a pas eu l'accusé du
+         * robot à temps. Voir le commentaire de NOACK : ce n'est ni un échec de
+         * l'ordre, ni une preuve de déconnexion. Testé avant le statut HTTP,
+         * qu'un serveur lassé d'attendre peut très bien mettre en 5xx. */
+        if ($code === 80001 || $code === -8) {
+            throw new dreamebeApiException('Le robot n\'a pas accusé réception dans le délai du cloud.',
+                                           dreamebeApiException::NOACK);
+        }
+
+        if (self::isTransient($answer['status'])) {
+            throw new dreamebeApiException('Cloud DreameHome indisponible (HTTP ' . $answer['status'] . ').',
+                                           dreamebeApiException::NETWORK);
+        }
+
         if (!is_array($data)) {
             throw new dreamebeApiException('Réponse illisible du cloud DreameHome (HTTP ' . $answer['status'] . ').',
                                            dreamebeApiException::API);
         }
 
-        if (isset($data['code']) && $data['code'] != 0) {
-            $code = (int) $data['code'];
+        if ($code !== 0) {
             $message = isset($data['msg']) ? (string) $data['msg'] : '';
-            /* 80001 et -8 : le cloud a transmis l'ordre mais n'a pas eu
-             * l'accusé du robot à temps. Voir le commentaire de NOACK : ce
-             * n'est ni un échec de l'ordre, ni une preuve de déconnexion. */
-            if ($code === 80001 || $code === -8) {
-                throw new dreamebeApiException('Le robot n\'a pas accusé réception dans le délai du cloud.',
-                                               dreamebeApiException::NOACK);
-            }
             throw new dreamebeApiException('DreameHome a refusé la requête (code ' . $code
                                            . ($message !== '' ? ', ' . $message : '') . ').',
+                                           dreamebeApiException::API);
+        }
+
+        /* Une erreur HTTP dont le corps est du JSON sans code : ce n'est pas un
+         * succès pour autant. La laisser passer rendrait, par exemple, une
+         * liste d'appareils vide au lieu d'un échec. */
+        if ($answer['status'] >= 400) {
+            throw new dreamebeApiException('DreameHome a refusé la requête (HTTP ' . $answer['status'] . ').',
                                            dreamebeApiException::API);
         }
 
@@ -872,6 +898,11 @@ class dreamebeApi {
         curl_close($ch);
 
         return array('status' => $status, 'body' => $body);
+    }
+
+    /* Serveur saturé ou en panne : rien à conclure, on retentera plus tard. */
+    private static function isTransient($_status) {
+        return $_status == 429 || $_status >= 500;
     }
 
     /*
