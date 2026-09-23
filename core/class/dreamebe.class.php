@@ -515,6 +515,19 @@ class dreamebe extends eqLogic {
             return;
         }
 
+        /* Aucun robot à relire ce tour-ci : la liste des appareils ne
+         * servirait à rien. Sans ce test, elle partait à chaque minute. */
+        $due = false;
+        foreach ($eqLogics as $eqLogic) {
+            if ($eqLogic->isDue()) {
+                $due = true;
+                break;
+            }
+        }
+        if (!$due) {
+            return;
+        }
+
         /*
          * Un seul appel pour tous les robots : la liste des appareils rend
          * l'état de connexion et le niveau de batterie de chacun. C'est gratuit
@@ -554,6 +567,16 @@ class dreamebe extends eqLogic {
         self::saveSession();
     }
 
+    /* L'intervalle de relecture est-il écoulé ? Pendant un nettoyage, on
+     * suit ; au repos, on se fait oublier. */
+    public function isDue() {
+        $interval = max(30, (int) config::byKey('polling_interval', 'dreamebe', 120));
+        if ($this->getCache('active', 0) == 1) {
+            $interval = min($interval, 60);
+        }
+        return (time() - (int) $this->getCache('last_attempt', 0)) >= $interval;
+    }
+
     /*
      * Ne JAMAIS renommer cette méthode « refresh ».
      *
@@ -565,14 +588,7 @@ class dreamebe extends eqLogic {
      * paramètres facultatifs à une redéfinition étant parfaitement légal.
      */
     public function poll($_force = false, $_summary = null) {
-        $interval = max(30, (int) config::byKey('polling_interval', 'dreamebe', 120));
-        $last = (int) $this->getCache('last_attempt', 0);
-
-        /* Pendant un nettoyage, on suit ; au repos, on se fait oublier. */
-        if (!$_force && $this->getCache('active', 0) == 1) {
-            $interval = min($interval, 60);
-        }
-        if (!$_force && (time() - $last) < $interval) {
+        if (!$_force && !$this->isDue()) {
             return false;
         }
         /* Deux clés, et ce n'est pas un luxe : celle-ci cadence les tentatives,
@@ -827,8 +843,11 @@ class dreamebe extends eqLogic {
             $this->checkAndUpdateCmd('serpillere', ((int) $mop === 1) ? 1 : 0);
         }
 
+        /* Pas de refreshWidget() : checkAndUpdateCmd() pousse déjà chaque
+         * valeur qui change. Reconstruire la tuile à chaque lecture la ferait
+         * redemander en entier par chaque tableau de bord ouvert, et refermerait
+         * une liste déroulante en cours de choix. */
         $this->applyExtras($_props, $_values);
-        $this->refreshWidget();
     }
 
     /*

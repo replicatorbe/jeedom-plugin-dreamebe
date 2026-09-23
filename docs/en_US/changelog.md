@@ -110,6 +110,10 @@ not supported.
   warning, which displayed "Niveau daspiration". Eleven labels were reworded, and
   the test suite now rejects any name that would contain one. The internal
   identifiers did not change.
+- The cycle only asks the cloud for the robot list when one of them is due,
+  instead of every minute.
+- A poll no longer rebuilds the whole tile: only the values that change are
+  pushed to the dashboard.
 
 Protocol studied from Tasshack/dreame-vacuum, TA2k/ioBroker.dreame and
 sandraschi/dreame-mcp, all three under the MIT licence. No code was copied from

@@ -117,6 +117,10 @@ protocole et ne sont pas gérés.
   sans prévenir, ce qui affichait « Niveau daspiration ». Onze libellés ont été
   reformulés, et le jeu d'essai refuse désormais tout nom qui en contiendrait.
   Les identifiants internes n'ont pas changé.
+- Le cycle ne demande la liste des robots au cloud que si l'un d'eux est à
+  relire, au lieu de chaque minute.
+- Une lecture ne reconstruit plus toute la tuile : seules les valeurs qui
+  changent sont poussées au tableau de bord.
 
 Protocole relevé sur Tasshack/dreame-vacuum, TA2k/ioBroker.dreame et
 sandraschi/dreame-mcp, tous trois sous licence MIT. Aucun code n'en a été
