@@ -915,8 +915,14 @@ class dreamebe extends eqLogic {
         if (config::byKey('map_enable', 'dreamebe', 1) == 1
             && ($now - (int) $this->getCache('last_map', 0)) >= max(300, (int) config::byKey('map_interval', 'dreamebe', 900))) {
             $this->setCache('last_map', $now);
+            /* Séparés : des pièces illisibles ne doivent pas figer la carte. */
             try {
                 $this->refreshRooms();
+            } catch (Throwable $e) {
+                log::add('dreamebe', 'info', $this->getHumanName()
+                         . ' : pièces non relues (' . $e->getMessage() . ')');
+            }
+            try {
                 $this->refreshMap();
             } catch (Throwable $e) {
                 log::add('dreamebe', 'info', $this->getHumanName()
@@ -1107,6 +1113,13 @@ class dreamebe extends eqLogic {
         }
         if (empty($rooms)) {
             return false;
+        }
+
+        /* Inchangées, le cas de loin le plus fréquent : ni enregistrement de
+         * l'équipement, ni passe sur les commandes de pièces, ni ligne au
+         * journal. Les pièces ne bougent que quand on redécoupe la carte. */
+        if ($rooms == $this->rooms()) {
+            return true;
         }
 
         $this->setConfiguration('rooms', $rooms);
