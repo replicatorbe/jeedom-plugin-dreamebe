@@ -1217,9 +1217,14 @@ class dreamebe extends eqLogic {
         }
 
         $path = self::mapDir() . '/' . $this->getId() . '.png';
+        $fingerprint = dreamebeMapImage::fingerprint($pourImage);
+        if ($fingerprint === $this->getCache('map_fingerprint', '') && file_exists($path)) {
+            return true;
+        }
         if (!dreamebeMapImage::render($pourImage, $path)) {
             return false;
         }
+        $this->setCache('map_fingerprint', $fingerprint);
         /* L'horodatage est celui du FICHIER, pas de l'instant : il empêche le
          * navigateur de servir une image périmée, sans pour autant produire un
          * événement et une écriture à chaque cycle quand rien n'a bougé. */

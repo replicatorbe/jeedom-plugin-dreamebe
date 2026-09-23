@@ -95,6 +95,12 @@ not supported.
   gave way to Jeedom's root `.htaccess`, which allows every PNG, and left floor
   plans readable without a session. A robot's map is deleted with its device.
 - Robot position and heading in the map's coordinate system.
+- An unchanged map is not redrawn: its address stays the same, and open tiles
+  no longer reload it on every poll. The image is written aside then renamed,
+  never served half-written, and a map that inflates abnormally is rejected
+  instead of exhausting memory.
+- Unreadable rooms no longer prevent the map from being refreshed, and
+  unchanged rooms no longer re-save the device and its commands.
 
 **Under the hood**
 

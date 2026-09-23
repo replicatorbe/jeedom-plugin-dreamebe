@@ -19,6 +19,7 @@ date_default_timezone_set('Europe/Brussels');
 require_once __DIR__ . '/../core/class/dreamebeApi.class.php';
 require_once __DIR__ . '/../core/class/dreamebeSpec.class.php';
 require_once __DIR__ . '/../core/class/dreamebeMap.class.php';
+require_once __DIR__ . '/../core/class/dreamebeMapImage.class.php';
 
 $ok = 0;
 $ko = 0;
@@ -699,6 +700,37 @@ verifie('vecteur du L40 Ultra',
         dreamebeMap::ivForModel('dreame.vacuum.r2492b'), 'NRwnBj5FsNPgBNbT');
 verifie('modèle inconnu : pas de vecteur inventé',
         dreamebeMap::ivForModel('dreame.vacuum.inconnu'), null);
+
+/* Une bombe de décompression doit rester une erreur de carte ordinaire :
+ * épuiser la mémoire serait une erreur fatale, que rien ne rattrape. Le
+ * plafond de zlib se contrôle par blocs, pas à l'octet : on le dépasse net. */
+verifieLeve('décompression plafonnée',
+            function () {
+                dreamebeMap::inflate(strtr(base64_encode(gzcompress(str_repeat("\0", 2 * dreamebeMap::MAX_INFLATED))),
+                                          '/+', '_-'));
+            });
+
+/* L'empreinte décide si l'image est redessinée : elle doit suivre tout ce que
+ * le rendu lit, et rien d'autre. */
+$empreinte = dreamebeMapImage::fingerprint($carte);
+verifie('empreinte stable', dreamebeMapImage::fingerprint(dreamebeMap::decode(fabriqueCarte())), $empreinte);
+$bouge = $carte;
+$bouge['robot']['x'] += 50;
+verifie('empreinte suit le robot', dreamebeMapImage::fingerprint($bouge) !== $empreinte, true);
+$bouge = $carte;
+$bouge['pixels'][0] = chr(ord($bouge['pixels'][0]) ^ 1);
+verifie('empreinte suit les pixels', dreamebeMapImage::fingerprint($bouge) !== $empreinte, true);
+$bouge = $carte;
+$bouge['frame_id'] = 99;
+verifie('empreinte ignore le numéro de trame', dreamebeMapImage::fingerprint($bouge), $empreinte);
+
+if (function_exists('imagecreatetruecolor')) {
+    $png = sys_get_temp_dir() . '/dreamebe-essai-' . getmypid() . '.png';
+    verifie('carte dessinée', dreamebeMapImage::render($carte, $png), true);
+    verifie('image PNG écrite', substr((string) @file_get_contents($png), 1, 3), 'PNG');
+    verifie('aucun fichier temporaire laissé', file_exists($png . '.tmp'), false);
+    @unlink($png);
+}
 
 echo "\n== Pièces ==\n";
 

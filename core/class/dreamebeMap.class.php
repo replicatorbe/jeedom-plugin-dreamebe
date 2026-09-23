@@ -42,6 +42,9 @@ class dreamebeMapException extends Exception {}
 
 class dreamebeMap {
 
+    /* Taille maximale d'une carte une fois décompressée. */
+    const MAX_INFLATED = 16777216;
+
     /* Taille de l'en-tête binaire, avant les pixels. */
     const HEADER_SIZE = 27;
 
@@ -181,8 +184,12 @@ class dreamebeMap {
 
         /* Format zlib (en-tête 78 9C), pas gzip et pas deflate brut. Le
          * remplissage AES qui traîne en fin de tampon ne gêne pas : la
-         * décompression s'arrête d'elle-même à la fin du flux. */
-        $inflated = @gzuncompress($binary);
+         * décompression s'arrête d'elle-même à la fin du flux.
+         *
+         * Plafonnée : un dépassement de mémoire est une erreur fatale que nul
+         * catch ne rattrape, et elle emporterait le cycle de tous les robots.
+         * Une vraie carte décompressée pèse quelques centaines de kilo-octets. */
+        $inflated = @gzuncompress($binary, self::MAX_INFLATED);
         if ($inflated === false) {
             throw new dreamebeMapException('Carte : décompression impossible.');
         }

@@ -102,6 +102,12 @@ protocole et ne sont pas gérés.
   racine de Jeedom, qui autorise tous les PNG, et laissait les plans lisibles
   sans session. La carte d'un robot est effacée avec son équipement.
 - Position et orientation du robot dans le repère de la carte.
+- Une carte inchangée n'est pas redessinée : son adresse reste la même, et les
+  tuiles ouvertes ne la rechargent plus à chaque relecture. L'image est écrite
+  à côté puis renommée, jamais servie à moitié écrite, et une carte anormale à
+  la décompression est refusée au lieu d'épuiser la mémoire.
+- Des pièces illisibles n'empêchent plus la carte d'être relue, et des pièces
+  inchangées ne réenregistrent plus l'équipement ni ses commandes.
 
 **Sous le capot**
 

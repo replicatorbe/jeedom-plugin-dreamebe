@@ -200,9 +200,38 @@ class dreamebeMapImage {
             }
         }
 
-        $ok = imagepng($image, $_path);
+        /* Écrite à côté puis renommée : map.php ne doit jamais servir une
+         * image à moitié écrite, et un échec en cours de route ne doit pas
+         * détruire la carte précédente. */
+        $tmp = $_path . '.tmp';
+        $ok = imagepng($image, $tmp);
         imagedestroy($image);
-        return (bool) $ok;
+        if (!$ok || !rename($tmp, $_path)) {
+            @unlink($tmp);
+            return false;
+        }
+        return true;
+    }
+
+    /*
+     * L'empreinte de ce que render() dessinerait : exactement les données
+     * qu'il lit, plus son propre code. Deux cartes de même empreinte donnent
+     * la même image — inutile alors de la redessiner, et surtout de changer
+     * son adresse, ce qui ferait recharger l'image dans chaque tuile ouverte.
+     */
+    public static function fingerprint($_map) {
+        return md5(serialize(array(
+            isset($_map['pixels']) ? $_map['pixels'] : '',
+            isset($_map['width']) ? $_map['width'] : 0,
+            isset($_map['height']) ? $_map['height'] : 0,
+            isset($_map['grid_size']) ? $_map['grid_size'] : 0,
+            isset($_map['left']) ? $_map['left'] : 0,
+            isset($_map['top']) ? $_map['top'] : 0,
+            isset($_map['robot']) ? $_map['robot'] : null,
+            isset($_map['charger']) ? $_map['charger'] : null,
+            isset($_map['json']['seg_inf']) ? $_map['json']['seg_inf'] : null,
+            md5_file(__FILE__),
+        )));
     }
 
     /* Le rectangle réellement occupé : le reste n'est que du vide à ne pas
