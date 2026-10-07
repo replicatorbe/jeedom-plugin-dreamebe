@@ -77,6 +77,11 @@ class dreamebe extends eqLogic {
         if (strpos($_logicalId, 'room::') === 0) {
             return 1;
         }
+        /* Même raisonnement pour les raccourcis : leur nom vient de
+         * l'utilisateur, qui les a composés dans l'application. */
+        if (strpos($_logicalId, 'shortcut::') === 0) {
+            return 1;
+        }
         return in_array($_logicalId, self::$visibleByDefault, true) ? 1 : 0;
     }
 
@@ -419,7 +424,7 @@ class dreamebe extends eqLogic {
         foreach (dreamebeSpec::$properties as $name => $prop) {
             /* La carte n'est pas une valeur à afficher : elle a son propre
              * chemin, et la sonder ferait transiter des kilo-octets pour rien. */
-            if (in_array($name, array('map_data', 'object_name', 'map_list'), true)) {
+            if (in_array($name, array('map_data', 'object_name', 'map_list', 'shortcuts'), true)) {
                 continue;
             }
             $candidates[$name] = $prop;
@@ -910,6 +915,14 @@ class dreamebe extends eqLogic {
                 log::add('dreamebe', 'info', $this->getHumanName()
                          . ' : entretien et statistiques non relus (' . $e->getMessage() . ')');
             }
+            /* Séparés : ils ne changent que quand on les édite dans
+             * l'application, et leur lecture ne doit rien coûter au reste. */
+            try {
+                $this->refreshShortcuts();
+            } catch (Throwable $e) {
+                log::add('dreamebe', 'info', $this->getHumanName()
+                         . ' : raccourcis non relus (' . $e->getMessage() . ')');
+            }
         }
 
         if (config::byKey('map_enable', 'dreamebe', 1) == 1
@@ -1132,6 +1145,40 @@ class dreamebe extends eqLogic {
         return true;
     }
 
+    public function shortcuts() {
+        $shortcuts = $this->getConfiguration('shortcuts', array());
+        return is_array($shortcuts) ? $shortcuts : array();
+    }
+
+    /*
+     * Va chercher les raccourcis composés dans l'application.
+     *
+     * Le robot en rend la liste — identifiant et nom — dans une propriété, et
+     * rien de plus : ce que fait un raccourci reste dans l'application. Cela
+     * suffit, puisque le lancer ne demande que son identifiant.
+     */
+    public function refreshShortcuts() {
+        $shortcuts = dreamebeSpec::parseShortcuts($this->mapProperty('shortcuts'));
+        /* Illisible ou sans réponse : on garde ce qu'on savait, plutôt que de
+         * retirer des commandes sur une lecture manquée. */
+        if ($shortcuts === null) {
+            return false;
+        }
+        if ($shortcuts == $this->shortcuts()) {
+            return true;
+        }
+
+        $this->setConfiguration('shortcuts', $shortcuts);
+        $this->setConfiguration('shortcuts_at', time());
+        /* Enregistrement direct, comme pour les pièces : seules les commandes
+         * de raccourcis ont pu changer. */
+        $this->save(true);
+        $this->createShortcutCommands();
+        log::add('dreamebe', 'info', $this->getHumanName() . ' : ' . count($shortcuts)
+                 . ' raccourci(s) reconnu(s).');
+        return true;
+    }
+
     /*
      * La carte telle qu'elle est en ce moment : position du robot, et image.
      *
@@ -1139,13 +1186,16 @@ class dreamebe extends eqLogic {
      * vivent dans les cartes sauvegardées, la position du robot dans la carte
      * courante, qui, elle, ne porte pas les noms.
      */
-    public function refreshMap() {
+    public function refreshMap($_fresh = false) {
         $device = $this->device();
         /* La valeur est tantôt une chaîne, tantôt une liste, tantôt une chaîne
          * contenant une liste JSON selon le micrologiciel. Traiter les trois
          * coûte quelques lignes ; parier coûte une carte qui ne s'affiche
          * jamais. */
-        $objectName = dreamebeMap::objectName($this->mapProperty('object_name'));
+        $objectName = $_fresh ? $this->requestMapFrame() : null;
+        if ($objectName === null) {
+            $objectName = dreamebeMap::objectName($this->mapProperty('object_name'));
+        }
         if ($objectName === null) {
             return false;
         }
@@ -1231,6 +1281,42 @@ class dreamebe extends eqLogic {
         clearstatcache(true, $path);
         $this->checkAndUpdateCmd('carte', self::mapUrl($this->getId()) . '&t=' . (int) filemtime($path));
         return true;
+    }
+
+    /*
+     * Demande au robot une carte complète, tout de suite.
+     *
+     * Sans cela, on ne lit que la dernière carte qu'il a bien voulu déposer :
+     * pendant un nettoyage, sa position peut dater de plusieurs minutes. C'est
+     * ce que fait l'application quand on ouvre sa carte. Le robot répond par le
+     * nom de l'objet qu'il vient de déposer.
+     *
+     * Réservé au suivi à l'écran : le cycle d'actualisation ne s'en sert pas,
+     * pour ne pas réveiller le robot toutes les quelques minutes. Un échec rend
+     * null, et l'appelant se rabat sur la dernière carte connue.
+     */
+    private function requestMapFrame() {
+        $action = dreamebeSpec::$actions['request_map'];
+        try {
+            $result = self::api()->action($this->device(), $action[0], $action[1], array(
+                array('piid' => dreamebeSpec::PIID_ARG_FRAME,
+                      'value' => '{"req_type":1,"frame_type":"I","force_type":1}'),
+            ));
+        } catch (dreamebeApiException $e) {
+            return null;
+        }
+        self::saveSession();
+        if (!is_array($result) || !isset($result['out']) || !is_array($result['out'])) {
+            return null;
+        }
+        $prop = dreamebeSpec::$properties['object_name'];
+        foreach ($result['out'] as $entry) {
+            if (is_array($entry) && isset($entry['piid']) && (int) $entry['piid'] === $prop[1]
+                && isset($entry['value'])) {
+                return dreamebeMap::objectName($entry['value']);
+            }
+        }
+        return null;
     }
 
     public static function mapDir() {
@@ -1471,6 +1557,19 @@ class dreamebe extends eqLogic {
                       ($_water !== null) ? (int) $_water : 2);
         return $this->startCustom(dreamebeSpec::STATUS_ZONE_CLEANING,
                                   json_encode(array('areas' => array($area)), JSON_UNESCAPED_SLASHES));
+    }
+
+    /*
+     * Lance un raccourci de l'application, avec tout ce qu'il contient : pièces,
+     * ordre, réglages par étape. Le robot reçoit le seul identifiant, et c'est
+     * lui qui déroule le reste — rien n'est reconstitué ici.
+     */
+    public function commandStartShortcut($_id) {
+        $id = (int) $_id;
+        if (!isset($this->shortcuts()[$id])) {
+            throw new Exception(__('Raccourci inconnu :', __FILE__) . ' ' . $_id);
+        }
+        return $this->startCustom(dreamebeSpec::STATUS_SHORTCUT, (string) $id);
     }
 
     /*
@@ -1772,6 +1871,8 @@ class dreamebe extends eqLogic {
                       array('order' => 70));
         $this->addCmd('nettoyer_zone', 'Nettoyer une zone', 'action', 'message',
                       array('order' => 71));
+        $this->addCmd('lancer_raccourci', 'Lancer un raccourci', 'action', 'message',
+                      array('order' => 72));
 
         /* --- Entretien ------------------------------------------------- */
         $order = 80;
@@ -1861,6 +1962,10 @@ class dreamebe extends eqLogic {
         $this->addCmd('pieces', 'Pièces', 'info', 'string', array('order' => 199));
 
         $this->createRoomCommands();
+
+        /* Même chose pour les raccourcis de l'application. */
+        $this->addCmd('raccourcis', 'Raccourcis', 'info', 'string', array('order' => 399));
+        $this->createShortcutCommands();
         $this->pruneCommands();
     }
 
@@ -1879,7 +1984,8 @@ class dreamebe extends eqLogic {
      * 1. on ne touche qu'aux commandes portant notre marque, donc jamais à
      *    celles que l'utilisateur a ajoutées lui-même ;
      * 2. les commandes de pièces ont leur propre élagage, dans
-     *    createRoomCommands(), qui seul sait quelles pièces existent encore ;
+     *    createRoomCommands(), qui seul sait quelles pièces existent encore —
+     *    et de même celles des raccourcis, dans createShortcutCommands() ;
      * 3. une commande qui a DÉJÀ porté une valeur n'est jamais supprimée.
      *
      * Ce dernier point protège contre le scénario qui ferait le plus de dégâts :
@@ -1897,7 +2003,8 @@ class dreamebe extends eqLogic {
         }
         foreach ($this->getCmd() as $cmd) {
             $logicalId = $cmd->getLogicalId();
-            if ($logicalId === '' || strpos($logicalId, 'room::') === 0) {
+            if ($logicalId === '' || strpos($logicalId, 'room::') === 0
+                || strpos($logicalId, 'shortcut::') === 0) {
                 continue;
             }
             if ($cmd->getConfiguration('managed', 0) != 1) {
@@ -1976,6 +2083,45 @@ class dreamebe extends eqLogic {
             }
             $id = (int) substr($cmd->getLogicalId(), 6);
             if (!isset($rooms[$id])) {
+                $cmd->remove();
+            }
+        }
+    }
+
+    /*
+     * Une commande par raccourci de l'application, sur le modèle des pièces :
+     * « Raccourci : Ménage du soir » se glisse dans un scénario sans qu'il
+     * faille en retenir l'identifiant.
+     */
+    public function createShortcutCommands() {
+        $shortcuts = $this->shortcuts();
+        $order = 400;
+        /* Deux raccourcis peuvent porter le même nom, et Jeedom impose des noms
+         * de commande uniques par équipement : même dédoublonnage que pour les
+         * pièces, pour la même raison. */
+        $pris = array();
+        $noms = array();
+        foreach ($shortcuts as $shortcut) {
+            $nom = 'Raccourci : ' . $shortcut['name'];
+            if (isset($pris[$nom])) {
+                $pris[$nom]++;
+                $nom .= ' (' . $pris[$nom] . ')';
+            } else {
+                $pris[$nom] = 1;
+            }
+            $this->addCmd('shortcut::' . $shortcut['id'], $nom, 'action', 'other', array('order' => $order++));
+            $noms[] = $shortcut['name'];
+        }
+        $this->checkAndUpdateCmd('raccourcis', implode(', ', $noms));
+
+        /* Un raccourci supprimé dans l'application laisserait une commande que
+         * le robot refuserait. */
+        foreach ($this->getCmd('action') as $cmd) {
+            if (strpos($cmd->getLogicalId(), 'shortcut::') !== 0) {
+                continue;
+            }
+            $id = (int) substr($cmd->getLogicalId(), 10);
+            if (!isset($shortcuts[$id])) {
                 $cmd->remove();
             }
         }
@@ -2074,6 +2220,137 @@ class dreamebe extends eqLogic {
     }
 
     /* ------------------------------------------------------------------ *
+     * Tuile du tableau de bord
+     * ------------------------------------------------------------------ */
+
+    /*
+     * La tuile compacte.
+     *
+     * Une case par commande donne une tuile haute comme l'écran, où trois
+     * listes déroulantes et une douzaine de boutons se disputent l'attention.
+     * Celle-ci regroupe par intention — où en est le robot, avec quels
+     * réglages, que lancer, comment l'interrompre — et replie la carte.
+     *
+     * Le cadre reste celui du coeur : titre, liens et redimensionnement
+     * suivent ses évolutions sans qu'il faille les recopier ici. Seul le
+     * contenu est remplacé, et seulement sur le tableau de bord : le mobile
+     * garde la présentation du coeur. Qui la préfère aussi sur le tableau de
+     * bord décoche « Template de widget » dans la configuration avancée de
+     * l'équipement — c'est le réglage que le coeur prévoit pour cela.
+     */
+    public function toHtml($_version = 'dashboard') {
+        if (jeedom::versionAlias($_version) != 'dashboard' || $this->getDisplay('widgetTmpl', 1) == 0) {
+            return parent::toHtml($_version);
+        }
+        $body = getTemplate('core', 'dashboard', 'dreamebe', 'dreamebe');
+        if ($body == '') {
+            return parent::toHtml($_version);
+        }
+        $replace = $this->preToHtml($_version);
+        if (!is_array($replace)) {
+            return $replace;
+        }
+        /* La largeur par défaut du coeur est trop juste pour une liste et son
+         * bouton côte à côte. Celle que l'utilisateur a réglée lui appartient. */
+        if ($this->getDisplay('width', 'auto') == 'auto') {
+            $replace['#width#'] = '310px';
+        }
+        $replace['#eqLogic_class#'] = 'eqLogic_layout_default';
+        $replace['#calledFrom#'] = __CLASS__;
+        /* La configuration voyage en JSON dans un attribut, échappée une fois
+         * pour toutes : aucun nom de pièce ou de raccourci n'est jamais posé
+         * tel quel dans le HTML ni dans le script. */
+        /* Le gabarit d'un équipement n'est pas traduit par le coeur, au
+         * contraire de celui d'une commande : sans cette passe, les libellés
+         * s'affichent entre accolades, y compris en français. Elle a lieu
+         * avant l'insertion de la configuration, pour qu'un nom de pièce ne
+         * puisse jamais être pris pour une clé de traduction. */
+        $body = translate::exec($body, 'plugins/dreamebe/core/template/dashboard/dreamebe.html');
+        $replace['#cmd#'] = strtr($body, array(
+            '#uid#' => $replace['#uid#'],
+            '#config#' => htmlspecialchars(json_encode($this->widgetConfig(),
+                JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), ENT_QUOTES, 'UTF-8'),
+        ));
+        return $this->postToHtml($_version, template_replace($replace, getTemplate('core', 'dashboard', 'eqLogic')));
+    }
+
+    /* Ce que la tuile compacte a besoin de savoir : les commandes qu'elle lit,
+     * celles qu'elle déclenche, et les listes qu'elle propose. Une commande
+     * absente — le robot ne la gère pas — retire simplement ce qui en dépend. */
+    private function widgetConfig() {
+        $water = $this->hasWashBase() ? 'humidite' : 'eau';
+
+        $info = array();
+        foreach (array('etat', 'code_etat', 'batterie', 'en_charge', 'en_ligne', 'erreur', 'en_erreur',
+                       'en_alerte', 'station', 'en_activite', 'progression', 'surface', 'duree',
+                       'aspiration', 'mode', $water, 'carte') as $logicalId) {
+            $cmd = $this->getCmd('info', $logicalId);
+            if (is_object($cmd)) {
+                $info[$logicalId] = array('id' => $cmd->getId(), 'value' => $cmd->execCmd());
+            }
+        }
+
+        $action = array();
+        foreach (array('all' => 'demarrer', 'rooms' => 'nettoyer_pieces', 'program' => 'lancer_raccourci',
+                       'pause' => 'pause', 'resume' => 'reprendre', 'stop' => 'arreter',
+                       'dock' => 'retour_station', 'locate' => 'localiser') as $key => $logicalId) {
+            $cmd = $this->getCmd('action', $logicalId);
+            if (is_object($cmd)) {
+                $action[$key] = $cmd->getId();
+            }
+        }
+
+        $settings = array();
+        /* Le mode d'abord : c'est lui qui décide si la puissance et l'humidité
+         * ont un sens, et la tuile grise celle qui n'en a pas. */
+        foreach (array(
+            array('mode', 'mode', __('Mode', __FILE__), 'regler_mode'),
+            array('aspiration', 'aspiration', __('Puissance', __FILE__), 'regler_aspiration'),
+            array($water, 'humidite', $this->hasWashBase() ? __('Humidité', __FILE__) : __('Eau', __FILE__),
+                  'regler_' . $water),
+        ) as $setting) {
+            $cmd = $this->getCmd('action', $setting[3]);
+            if (!is_object($cmd) || !isset($info[$setting[0]])) {
+                continue;
+            }
+            $options = array();
+            foreach (explode(';', (string) $cmd->getConfiguration('listValue', '')) as $entry) {
+                $pair = explode('|', $entry, 2);
+                if (count($pair) == 2) {
+                    $options[] = array(trim($pair[0]), trim($pair[1]));
+                }
+            }
+            if (empty($options)) {
+                continue;
+            }
+            $action[$setting[3]] = $cmd->getId();
+            $settings[] = array('key' => $setting[0], 'icon' => $setting[1], 'label' => $setting[2],
+                                'action' => $setting[3], 'options' => $options);
+        }
+
+        $rooms = array();
+        foreach ($this->rooms() as $room) {
+            $rooms[] = array((int) $room['id'], (string) $room['name']);
+        }
+        $shortcuts = array();
+        foreach ($this->shortcuts() as $shortcut) {
+            $shortcuts[] = array((int) $shortcut['id'], (string) $shortcut['name']);
+        }
+
+        return array(
+            'id' => (int) $this->getId(),
+            'name' => $this->getName(),
+            'info' => $info,
+            'action' => $action,
+            'settings' => $settings,
+            'waterKey' => $water,
+            'rooms' => $rooms,
+            'shortcuts' => $shortcuts,
+            'stationIdle' => self::label(dreamebeSpec::$washBaseStatus, 0),
+        );
+    }
+
+    /* ------------------------------------------------------------------ *
      * Santé
      * ------------------------------------------------------------------ */
 
@@ -2145,6 +2422,10 @@ class dreamebeCmd extends cmd {
         if (strpos($logicalId, 'room::') === 0) {
             return $eqLogic->commandCleanRooms(array((int) substr($logicalId, 6)));
         }
+        /* Un raccourci de l'application. */
+        if (strpos($logicalId, 'shortcut::') === 0) {
+            return $eqLogic->commandStartShortcut((int) substr($logicalId, 10));
+        }
         if (strpos($logicalId, 'raz_') === 0) {
             foreach (dreamebeSpec::$consumables as $siid => $consumable) {
                 if ($logicalId === 'raz_' . $consumable[0]) {
@@ -2196,6 +2477,8 @@ class dreamebeCmd extends cmd {
                 return self::cleanRooms($eqLogic, self::argument($_options));
             case 'nettoyer_zone':
                 return self::cleanZone($eqLogic, self::argument($_options));
+            case 'lancer_raccourci':
+                return $eqLogic->commandStartShortcut(self::shortcutId($eqLogic, self::argument($_options)));
         }
         throw new Exception(__('Commande non gérée :', __FILE__) . ' ' . $logicalId);
     }
@@ -2266,7 +2549,7 @@ class dreamebeCmd extends cmd {
     /*
      * « Cuisine, Salon » nettoie ces deux pièces une fois, au réglage du robot.
      * « Cuisine, Salon | 2 » y passe deux fois. « Cuisine | 2 | 3 » y passe deux
-     * fois en Turbo.
+     * fois en Turbo, et « Cuisine | 2 | 3 | 1 » de même, serpillière peu humide.
      *
      * La barre verticale plutôt qu'une virgule : les noms de pièces en
      * contiennent déjà, et il faut bien séparer la liste de ses paramètres.
@@ -2276,7 +2559,27 @@ class dreamebeCmd extends cmd {
         $rooms = self::roomList($_eqLogic, array_shift($parts));
         $repeats = isset($parts[0]) && trim($parts[0]) !== '' ? (int) trim($parts[0]) : 1;
         $suction = isset($parts[1]) && trim($parts[1]) !== '' ? (int) trim($parts[1]) : null;
-        return $_eqLogic->commandCleanRooms($rooms, $repeats, $suction);
+        $water = isset($parts[2]) && trim($parts[2]) !== '' ? (int) trim($parts[2]) : null;
+        return $_eqLogic->commandCleanRooms($rooms, $repeats, $suction, $water);
+    }
+
+    /* Un identifiant ou un nom, comme pour les pièces : « 32 » autant que
+     * « Ménage du soir ». */
+    private static function shortcutId($_eqLogic, $_argument) {
+        $token = trim((string) $_argument);
+        if ($token === '') {
+            throw new Exception(__('Indiquez le raccourci à lancer, par son nom ou son identifiant.', __FILE__));
+        }
+        $shortcuts = $_eqLogic->shortcuts();
+        if (ctype_digit($token) && isset($shortcuts[(int) $token])) {
+            return (int) $token;
+        }
+        foreach ($shortcuts as $shortcut) {
+            if (mb_strtolower($shortcut['name']) === mb_strtolower($token)) {
+                return $shortcut['id'];
+            }
+        }
+        throw new Exception(__('Raccourci inconnu :', __FILE__) . ' ' . $token);
     }
 
     private static function cleanZone($_eqLogic, $_argument) {

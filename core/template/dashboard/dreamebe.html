@@ -1,0 +1,483 @@
+<div class="dreamebeCompact" data-uid="#uid#" data-config="#config#">
+  <div class="dbRow">
+    <div class="dbTile dbGrow">
+      <div class="dbLabel">{{Robot}}</div>
+      <div class="dbState"><i class="dbStateIcon fas fa-robot"></i><span class="dbStateText"></span></div>
+      <div class="dbSub dbProgress"></div>
+      <div class="dbSub dbStation"></div>
+      <div class="dbSub dbError"></div>
+    </div>
+    <div class="dbTile dbBatteryTile">
+      <div class="dbLabel">{{Batterie}}</div>
+      <div class="dbBattery"><i class="dbBatteryIcon fas fa-battery-full"></i><span class="dbBatteryText"></span></div>
+    </div>
+  </div>
+
+  <div class="dbTile dbSettings">
+    <div class="dbLabel">{{Réglages du prochain nettoyage}}</div>
+    <div class="dbSettingsList"></div>
+  </div>
+
+  <div class="dbTile dbLaunch">
+    <div class="dbLabel">{{Lancer avec ces réglages}}</div>
+    <div class="dbLine dbAll">
+      <span class="dbLineText">{{Tout le logement}}</span>
+      <button type="button" class="dbBtn dbPrimary" data-do="all"><i class="fas fa-play"></i> {{Lancer}}</button>
+    </div>
+    <div class="dbLine dbRoom">
+      <select class="dbSelect dbRoomSelect" title="{{Pièce à nettoyer}}"></select>
+      <button type="button" class="dbBtn dbPrimary" data-do="room"><i class="fas fa-play"></i> {{Lancer}}</button>
+    </div>
+  </div>
+
+  <div class="dbTile dbProgram">
+    <div class="dbLabel">{{Programme de l'application}}</div>
+    <select class="dbSelect dbProgramSelect" title="{{Programme à lancer}}"></select>
+    <button type="button" class="dbBtn dbPrimary dbWide" data-do="program"><i class="fas fa-play"></i> {{Lancer programme}}</button>
+    <div class="dbHint">{{Un programme applique ses propres réglages.}}</div>
+  </div>
+
+  <div class="dbTile dbControls">
+    <div class="dbLabel">{{Pendant le nettoyage}}</div>
+    <div class="dbButtons">
+      <button type="button" class="dbBtn dbIconBtn" data-do="pause"><i class="fas fa-pause"></i><span>{{Pause}}</span></button>
+      <button type="button" class="dbBtn dbIconBtn" data-do="stop"><i class="fas fa-stop"></i><span>{{Arrêter}}</span></button>
+      <button type="button" class="dbBtn dbIconBtn" data-do="dock"><i class="fas fa-home"></i><span>{{Station}}</span></button>
+      <button type="button" class="dbBtn dbIconBtn" data-do="locate"><i class="fas fa-map-marker-alt"></i><span>{{Localiser}}</span></button>
+    </div>
+  </div>
+
+  <button type="button" class="dbBtn dbMapBtn"><i class="fas fa-map"></i> {{Voir la carte}}</button>
+
+  <script>
+    (function () {
+      /* Une seule feuille de style pour toutes les tuiles compactes, posée au
+         premier rendu : le CSS d'un plugin n'est pas chargé sur le dashboard.
+         Les couleurs viennent du thème, pour suivre le clair comme le sombre. */
+      if (!document.getElementById('dreamebeCompactCss')) {
+        var css = document.createElement('style')
+        css.id = 'dreamebeCompactCss'
+        css.textContent = [
+          '.dreamebeCompact{display:flex;flex-direction:column;gap:6px;padding:6px;text-align:left;color:var(--txt-color);font-size:13px;line-height:1.3}',
+          '.dreamebeCompact .dbRow{display:flex;gap:6px;align-items:stretch}',
+          '.dreamebeCompact .dbTile{background:rgba(128,128,128,.10);border:1px solid rgba(128,128,128,.22);border-radius:10px;padding:5px 8px 8px;min-width:0}',
+          '.dreamebeCompact .dbGrow{flex:1 1 auto}',
+          '.dreamebeCompact .dbLabel{font-size:11px;opacity:.7;text-align:center;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+          '.dreamebeCompact .dbHint{font-size:11px;opacity:.65;text-align:center;margin-top:5px}',
+
+          '.dreamebeCompact .dbState{display:flex;align-items:center;justify-content:center;gap:7px;font-size:15px;font-weight:700;min-height:24px;text-align:center}',
+          '.dreamebeCompact .dbStateIcon{font-size:17px;flex:none}',
+          '.dreamebeCompact[data-tone="active"] .dbStateIcon{color:var(--al-success-color)}',
+          '.dreamebeCompact[data-tone="error"] .dbStateIcon{color:var(--al-danger-color)}',
+          '.dreamebeCompact[data-tone="warning"] .dbStateIcon{color:var(--al-warning-color)}',
+          '.dreamebeCompact[data-tone="offline"] .dbState{opacity:.55}',
+          '.dreamebeCompact .dbSub{font-size:11.5px;text-align:center;margin-top:3px}',
+          '.dreamebeCompact .dbSub:empty{display:none}',
+          '.dreamebeCompact .dbError{font-weight:700;color:var(--al-danger-color)}',
+          '.dreamebeCompact[data-tone="warning"] .dbError{color:var(--al-warning-color)}',
+          '.dreamebeCompact .dbBatteryTile{flex:none;width:74px}',
+          '.dreamebeCompact .dbBattery{display:flex;flex-direction:column;align-items:center;gap:1px;font-size:15px;font-weight:700}',
+          '.dreamebeCompact .dbBatteryIcon{font-size:17px}',
+          '.dreamebeCompact .dbBatteryIcon.dbLow{color:var(--al-danger-color)}',
+
+          '.dreamebeCompact .dbSetting{display:flex;align-items:center;gap:7px}',
+          '.dreamebeCompact .dbSetting+.dbSetting{margin-top:5px}',
+          '.dreamebeCompact .dbSetting.dbOff{opacity:.4}',
+          '.dreamebeCompact .dbSetting.dbOff .dbSelect{cursor:default}',
+          '.dreamebeCompact .dbIco{flex:none;width:22px;height:22px;background-color:var(--txt-color);-webkit-mask:center/contain no-repeat;mask:center/contain no-repeat}',
+          '.dreamebeCompact .dbSettingName{flex:none;width:60px;font-size:12px;white-space:nowrap}',
+
+          /* Le coeur habille tous les <select> et tous les boutons du tableau de
+             bord : sans ces priorités, le texte des listes est rogné et les
+             angles restent vifs. */
+          '.dreamebeCompact .dbSelect{flex:1 1 auto;min-width:0;width:100%!important;height:28px!important;margin:0!important;padding:0 22px 0 8px!important;font-size:13px!important;font-weight:400!important;line-height:normal!important;text-align:left;color:var(--txt-color)!important;background-color:rgba(128,128,128,.12)!important;border:1px solid rgba(128,128,128,.45)!important;border-radius:8px!important;cursor:pointer}',
+          '.dreamebeCompact .dbLine{display:flex;align-items:center;gap:6px}',
+          '.dreamebeCompact .dbLine+.dbLine{margin-top:6px}',
+          '.dreamebeCompact .dbLineText{flex:1 1 auto;padding-left:2px}',
+
+          '.dreamebeCompact .dbBtn{flex:none;height:28px;margin:0;padding:0 10px;font-size:13px;line-height:26px;white-space:nowrap;color:var(--txt-color);background:rgba(128,128,128,.16);border:1px solid rgba(128,128,128,.5);border-radius:8px!important;cursor:pointer}',
+          '.dreamebeCompact .dbBtn:hover{background:rgba(128,128,128,.3)}',
+          '.dreamebeCompact .dbBtn:disabled{opacity:.5;cursor:default}',
+          '.dreamebeCompact .dbPrimary{font-weight:700;color:#fff;background:var(--al-success-color);border-color:transparent}',
+          '.dreamebeCompact .dbPrimary:hover{background:var(--al-success-color);filter:brightness(1.1)}',
+          '.dreamebeCompact .dbPrimary i{font-size:10px;margin-right:3px}',
+          '.dreamebeCompact .dbWide{display:block;width:100%;margin-top:6px}',
+          '.dreamebeCompact .dbButtons{display:flex;gap:5px}',
+          '.dreamebeCompact .dbIconBtn{flex:1 1 0;min-width:0;height:auto;padding:5px 2px 4px;display:flex;flex-direction:column;align-items:center;gap:3px;line-height:1.1}',
+          '.dreamebeCompact .dbIconBtn i{font-size:14px}',
+          '.dreamebeCompact .dbIconBtn span{font-size:10.5px}',
+
+          '.dreamebeCompact .dbMapBtn{width:100%;height:30px}',
+          '.dreamebeCompact .dbMapBtn i{margin-right:4px}',
+
+          /* La fenêtre de carte est posée sur <body>, hors de la tuile : elle
+             ne peut donc rien hériter de .dreamebeCompact. */
+          '.dreamebeMapPop{position:fixed;inset:0;z-index:5000;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(0,0,0,.6)}',
+          '.dreamebeMapPop .dmBox{display:flex;flex-direction:column;width:min(920px,100%);max-height:100%;border-radius:12px;overflow:hidden;color:var(--txt-color);background:var(--bg-modal-color,#eee);box-shadow:0 10px 40px rgba(0,0,0,.5)}',
+          '.dreamebeMapPop .dmHead{display:flex;align-items:center;gap:10px;padding:10px 14px;font-size:15px;font-weight:700;border-bottom:1px solid rgba(128,128,128,.25)}',
+          '.dreamebeMapPop .dmTitle{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left}',
+          '.dreamebeMapPop .dmState{font-weight:400;opacity:.75}',
+          '.dreamebeMapPop .dmClose{flex:none;width:30px;height:30px;padding:0;font-size:16px;color:var(--txt-color);background:rgba(128,128,128,.16);border:1px solid rgba(128,128,128,.5);border-radius:8px!important;cursor:pointer}',
+          '.dreamebeMapPop .dmBody{flex:1 1 auto;min-height:120px;display:flex;align-items:center;justify-content:center;padding:10px;background:#f6f7f9;overflow:hidden}',
+          '.dreamebeMapPop .dmImg{display:block;max-width:100%;max-height:calc(100vh - 170px);object-fit:contain}',
+          '.dreamebeMapPop .dmNone{color:#555;font-size:13px}',
+          '.dreamebeMapPop .dmFoot{display:flex;align-items:center;gap:8px;padding:8px 14px;font-size:12px;border-top:1px solid rgba(128,128,128,.25)}',
+          '.dreamebeMapPop .dmDot{flex:none;width:8px;height:8px;border-radius:50%;background:rgba(128,128,128,.6)}',
+          '.dreamebeMapPop[data-live="1"] .dmDot{background:var(--al-success-color);animation:dreamebePulse 1.4s infinite}',
+          '.dreamebeMapPop [hidden]{display:none!important}',
+          '@keyframes dreamebePulse{50%{opacity:.25}}',
+          '.dreamebeCompact [hidden]{display:none!important}'
+        ].join('')
+        document.head.appendChild(css)
+      }
+
+      var root = document.querySelector('.dreamebeCompact[data-uid="#uid#"]')
+      if (!root) { return }
+      var cfg
+      try { cfg = JSON.parse(root.getAttribute('data-config')) } catch (e) { return }
+      root.removeAttribute('data-config')
+
+      function q(_selector) { return root.querySelector(_selector) }
+      function num(_value) { var n = parseFloat(_value); return isNaN(n) ? null : n }
+      function isOn(_value) { return _value === 1 || _value === '1' || _value === true }
+
+      /* Ce que la tuile sait du robot, tenu à jour par les commandes d'info. */
+      var state = {}
+      Object.keys(cfg.info).forEach(function (_key) { state[_key] = cfg.info[_key].value })
+
+      /* --- Envoi d'un ordre --------------------------------------------- */
+
+      /* Le bouton est neutralisé le temps de l'envoi : un double clic lancerait
+         deux nettoyages. En cas de refus, le coeur affiche lui-même l'erreur. */
+      function send(_action, _value, _button) {
+        var id = cfg.action[_action]
+        if (!id) { return }
+        var icon = _button ? _button.querySelector('i') : null
+        var before = icon ? icon.className : ''
+        if (_button) {
+          _button.disabled = true
+          if (icon) { icon.className = 'fas fa-spinner fa-spin' }
+        }
+        var release = function (_done) {
+          if (!_button) { return }
+          if (icon) { icon.className = _done ? 'fas fa-check' : before }
+          setTimeout(function () {
+            _button.disabled = false
+            if (icon) { icon.className = before }
+          }, _done ? 1200 : 0)
+        }
+        var timer = setTimeout(function () { release(false) }, 20000)
+        jeedom.cmd.execute({
+          id: id,
+          value: _value || {},
+          notify: false,
+          success: function () { clearTimeout(timer); release(true) },
+          error: function (_error) {
+            clearTimeout(timer)
+            release(false)
+            jeedomUtils.showAlert({ message: _error.message, level: 'danger' })
+          }
+        })
+      }
+
+      /* --- Réglages ------------------------------------------------------ */
+
+      var settingsList = q('.dbSettingsList')
+      cfg.settings.forEach(function (_setting) {
+        var line = document.createElement('div')
+        line.className = 'dbSetting'
+        var ico = document.createElement('span')
+        ico.className = 'dbIco'
+        var name = document.createElement('span')
+        name.className = 'dbSettingName'
+        name.textContent = _setting.label
+        var select = document.createElement('select')
+        select.className = 'dbSelect'
+        select.title = _setting.label
+        _setting.options.forEach(function (_option) {
+          var option = document.createElement('option')
+          option.value = _option[0]
+          option.textContent = _option[1]
+          select.appendChild(option)
+        })
+        /* Le réglage part au robot dès qu'il est choisi : c'est lui qui le
+           retient, et c'est donc lui que le prochain nettoyage appliquera. */
+        select.addEventListener('change', function () {
+          state[_setting.key] = select.value
+          render()
+          send(_setting.action, { select: select.value })
+        })
+        line.appendChild(ico)
+        line.appendChild(name)
+        line.appendChild(select)
+        settingsList.appendChild(line)
+        _setting.line = line
+        _setting.ico = ico
+        _setting.select = select
+      })
+      if (cfg.settings.length === 0) { q('.dbSettings').hidden = true }
+
+      /* --- Listes des pièces et des programmes --------------------------- */
+
+      function fill(_select, _entries) {
+        _entries.forEach(function (_entry) {
+          var option = document.createElement('option')
+          option.value = _entry[0]
+          option.textContent = _entry[1]
+          _select.appendChild(option)
+        })
+      }
+      fill(q('.dbRoomSelect'), cfg.rooms)
+      fill(q('.dbProgramSelect'), cfg.shortcuts)
+      if (!cfg.action.all) { q('.dbAll').hidden = true }
+      if (!cfg.action.rooms || cfg.rooms.length === 0) { q('.dbRoom').hidden = true }
+      if (q('.dbAll').hidden && q('.dbRoom').hidden) { q('.dbLaunch').hidden = true }
+      if (!cfg.action.program || cfg.shortcuts.length === 0) { q('.dbProgram').hidden = true }
+
+      /* --- Boutons -------------------------------------------------------- */
+
+      function settingValue(_key) {
+        var n = num(state[_key])
+        return n === null ? '' : n
+      }
+
+      root.querySelectorAll('.dbBtn[data-do]').forEach(function (_button) {
+        if (_button.dataset.do !== 'all' && _button.dataset.do !== 'room' && _button.dataset.do !== 'program'
+            && !cfg.action[_button.dataset.do] && !(_button.dataset.do === 'pause' && cfg.action.resume)) {
+          _button.hidden = true
+        }
+        _button.addEventListener('click', function () {
+          switch (_button.dataset.do) {
+            case 'all':
+              return send('all', {}, _button)
+            case 'room':
+              /* « pièce | passages | aspiration | eau » : les réglages affichés
+                 accompagnent l'ordre, pour que la pièce soit nettoyée comme la
+                 tuile l'annonce et non selon un réglage par pièce oublié. */
+              return send('rooms', {
+                message: q('.dbRoomSelect').value + ' | 1 | ' + settingValue('aspiration') + ' | ' + settingValue(cfg.waterKey)
+              }, _button)
+            case 'program':
+              return send('program', { message: q('.dbProgramSelect').value }, _button)
+            case 'pause':
+              return send(isPaused() ? 'resume' : 'pause', {}, _button)
+            default:
+              return send(_button.dataset.do, {}, _button)
+          }
+        })
+      })
+
+      /* --- Affichage ------------------------------------------------------ */
+
+      /* Un réglage que le mode choisi rend sans objet : l'humidité quand le
+         robot n'aspire que, la puissance quand il ne fait que laver. */
+      function settingUseless(_key) {
+        var mode = num(state.mode)
+        if (mode === 0) { return _key === cfg.waterKey }
+        if (mode === 1) { return _key === 'aspiration' }
+        return false
+      }
+
+      function isPaused() {
+        var code = num(state.code_etat)
+        return code === 3 || code === 21
+      }
+
+      function batteryIcon(_level, _charging) {
+        if (_charging) { return 'fa-bolt' }
+        if (_level === null) { return 'fa-battery-empty' }
+        if (_level > 87) { return 'fa-battery-full' }
+        if (_level > 62) { return 'fa-battery-three-quarters' }
+        if (_level > 37) { return 'fa-battery-half' }
+        if (_level > 12) { return 'fa-battery-quarter' }
+        return 'fa-battery-empty'
+      }
+
+      function render() {
+        var offline = ('en_ligne' in state) && state.en_ligne !== '' && !isOn(state.en_ligne)
+        var error = isOn(state.en_erreur)
+        var warning = !error && isOn(state.en_alerte)
+        var active = isOn(state.en_activite)
+        var charging = isOn(state.en_charge)
+
+        var tone = 'idle'
+        var icon = 'fa-robot'
+        if (offline) { tone = 'offline'; icon = 'fa-plug' }
+        else if (error) { tone = 'error'; icon = 'fa-exclamation-triangle' }
+        else if (isPaused()) { tone = warning ? 'warning' : 'idle'; icon = 'fa-pause-circle' }
+        else if (active) { tone = 'active'; icon = 'fa-broom' }
+        else if (warning) { tone = 'warning'; icon = 'fa-exclamation-circle' }
+        else if (charging) { icon = 'fa-charging-station' }
+        root.setAttribute('data-tone', tone)
+        q('.dbStateIcon').className = 'dbStateIcon fas ' + icon
+        q('.dbStateText').textContent = offline ? '{{Hors ligne}}' : (state.etat || '{{État inconnu}}')
+
+        var progress = []
+        if (active) {
+          var percent = num(state.progression)
+          var area = num(state.surface)
+          var minutes = num(state.duree)
+          if (percent !== null && percent > 0) { progress.push(percent + ' %') }
+          if (area !== null && area > 0) { progress.push(area + ' m²') }
+          if (minutes !== null && minutes > 0) { progress.push(minutes + ' min') }
+        }
+        q('.dbProgress').textContent = progress.join(' · ')
+        q('.dbStation').textContent = (state.station && state.station !== cfg.stationIdle)
+          ? '{{Station}} : ' + state.station : ''
+        q('.dbError').textContent = (error || warning) ? (state.erreur || '') : ''
+
+        var level = num(state.batterie)
+        var batteryIco = q('.dbBatteryIcon')
+        batteryIco.className = 'dbBatteryIcon fas ' + batteryIcon(level, charging)
+        if (level !== null && level <= 15 && !charging) { batteryIco.classList.add('dbLow') }
+        q('.dbBatteryText').textContent = (level === null) ? '—' : level + ' %'
+
+        cfg.settings.forEach(function (_setting) {
+          var value = num(state[_setting.key])
+          if (value !== null && document.activeElement !== _setting.select) {
+            _setting.select.value = String(value)
+          }
+          var url = (value === null) ? '' : 'url(plugins/dreamebe/core/img/' + _setting.icon + '_' + value + '.png)'
+          _setting.ico.style.webkitMaskImage = url
+          _setting.ico.style.maskImage = url
+          _setting.ico.style.visibility = url ? 'visible' : 'hidden'
+          var useless = settingUseless(_setting.key)
+          _setting.select.disabled = useless
+          _setting.select.title = useless ? '{{Sans effet dans ce mode}}' : _setting.label
+          _setting.line.classList.toggle('dbOff', useless)
+        })
+
+        var pause = q('[data-do="pause"]')
+        var paused = isPaused()
+        if (pause.getAttribute('data-paused') !== String(paused) && !pause.disabled) {
+          pause.setAttribute('data-paused', String(paused))
+          pause.querySelector('i').className = paused ? 'fas fa-play' : 'fas fa-pause'
+          pause.querySelector('span').textContent = paused ? '{{Reprendre}}' : '{{Pause}}'
+        }
+
+        if (pop) { popState() }
+      }
+
+      /* --- Fenêtre de carte ----------------------------------------------- */
+
+      /*
+       * L'adresse de la carte est composée par le plugin et n'a qu'une forme
+       * possible : la vérifier ferme la porte à tout ce qui n'est pas une
+       * carte servie par le passe-plat.
+       */
+      function mapUrlOk(_url) {
+        return (typeof _url === 'string' && /^plugins\/dreamebe\/core\/php\/map\.php\?id=\d+&t=\d+$/.test(_url))
+      }
+
+      var pop = null
+      var popTimer = null
+      var popBusy = false
+      var LIVE_DELAY = 5000
+
+      function popState() {
+        var active = isOn(state.en_activite)
+        pop.setAttribute('data-live', active ? '1' : '0')
+        pop.querySelector('.dmState').textContent = state.etat ? ' — ' + state.etat : ''
+        /* Le robot vient de se mettre en route, fenêtre ouverte : le suivi
+           démarre de lui-même. */
+        if (active && !popTimer && !popBusy) { popRefresh() }
+      }
+
+      /* L'image n'est remplacée qu'une fois la nouvelle chargée : sans cela,
+         la carte clignoterait à chaque passe. */
+      function popShow(_url) {
+        if (!pop || !mapUrlOk(_url)) { return }
+        var img = pop.querySelector('.dmImg')
+        var next = new Image()
+        next.onload = function () {
+          if (!pop) { return }
+          img.src = _url
+          img.hidden = false
+          pop.querySelector('.dmNone').hidden = true
+        }
+        next.src = _url
+      }
+
+      /*
+       * Une passe du suivi : le robot dépose une carte complète, le plugin la
+       * redessine, la fenêtre l'affiche. La passe suivante n'est programmée
+       * qu'à la fin de celle-ci, et seulement pendant un nettoyage — au repos,
+       * une seule suffit, le robot ne bouge pas.
+       */
+      function popRefresh() {
+        if (!pop || popBusy) { return }
+        popTimer = null
+        if (document.hidden) { popTimer = setTimeout(popRefresh, LIVE_DELAY); return }
+        popBusy = true
+        var done = function (_note) {
+          popBusy = false
+          if (!pop) { return }
+          pop.querySelector('.dmNote').textContent = _note
+          if (isOn(state.en_activite)) { popTimer = setTimeout(popRefresh, LIVE_DELAY) }
+        }
+        domUtils.ajax({
+          type: 'POST',
+          url: 'plugins/dreamebe/core/ajax/dreamebe.ajax.php',
+          data: { action: 'map', id: cfg.id, fresh: 1 },
+          dataType: 'json',
+          global: false,
+          error: function () { done('{{Carte non actualisée : dernière carte connue.}}') },
+          success: function (_data) {
+            if (!_data || _data.state !== 'ok' || !_data.result) {
+              return done('{{Carte non actualisée : dernière carte connue.}}')
+            }
+            popShow(_data.result.url)
+            var now = new Date().toLocaleTimeString()
+            done(isOn(state.en_activite)
+              ? '{{Suivi en direct — position relevée à}} ' + now
+              : '{{Position relevée à}} ' + now)
+          }
+        })
+      }
+
+      function popClose() {
+        if (!pop) { return }
+        clearTimeout(popTimer)
+        popTimer = null
+        document.removeEventListener('keydown', popKey)
+        pop.remove()
+        pop = null
+      }
+      function popKey(_event) { if (_event.key === 'Escape') { popClose() } }
+
+      function popOpen() {
+        if (pop) { return }
+        pop = document.createElement('div')
+        pop.className = 'dreamebeMapPop'
+        pop.innerHTML = '<div class="dmBox">'
+          + '<div class="dmHead"><i class="fas fa-map"></i><span class="dmTitle"><span class="dmName"></span><span class="dmState"></span></span>'
+          + '<button type="button" class="dmClose" title="{{Fermer}}"><i class="fas fa-times"></i></button></div>'
+          + '<div class="dmBody"><img class="dmImg" alt="" hidden><span class="dmNone">{{Chargement de la carte…}}</span></div>'
+          + '<div class="dmFoot"><span class="dmDot"></span><span class="dmNote"></span></div>'
+          + '</div>'
+        pop.querySelector('.dmName').textContent = cfg.name
+        pop.querySelector('.dmClose').addEventListener('click', popClose)
+        pop.addEventListener('click', function (_event) { if (_event.target === pop) { popClose() } })
+        document.addEventListener('keydown', popKey)
+        document.body.appendChild(pop)
+        popShow(state.carte)
+        if (!mapUrlOk(state.carte)) { pop.querySelector('.dmNone').textContent = '{{Aucune carte pour le moment.}}' }
+        popRefresh()
+        popState()
+      }
+
+      var mapBtn = q('.dbMapBtn')
+      if (!('carte' in state)) { mapBtn.hidden = true }
+      mapBtn.addEventListener('click', popOpen)
+
+      Object.keys(cfg.info).forEach(function (_key) {
+        jeedom.cmd.addUpdateFunction(cfg.info[_key].id, function (_options) {
+          if (!document.body.contains(root)) { return }
+          state[_key] = _options.value
+          render()
+        })
+      })
+      render()
+    })()
+  </script>
+</div>

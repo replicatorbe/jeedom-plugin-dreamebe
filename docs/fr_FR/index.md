@@ -460,6 +460,41 @@ des noms de pièces séparés par des virgules. Elle existe pour qu'un scénario
 puisse les énumérer sans que leurs noms soient écrits en dur dans son code : le
 jour où une pièce est renommée dans l'application, le scénario suit.
 
+### Une commande par raccourci
+
+Pour chaque raccourci composé dans l'application DreameHome, une commande
+d'action `shortcut::<identifiant>`, nommée **Raccourci : *nom du raccourci***.
+Elles apparaissent à la première lecture, se mettent à jour quand un raccourci
+est renommé, et disparaissent quand il est supprimé dans l'application.
+
+S'y ajoutent `raccourcis` (« Raccourcis »), commande d'information qui rend la
+liste des noms séparés par des virgules, et `lancer_raccourci` (« Lancer un
+raccourci »), commande d'action qui attend un nom ou un identifiant.
+
+## Lancer un raccourci de l'application
+
+Un raccourci est un programme de nettoyage enregistré dans l'application :
+pièces, ordre de passage, réglages de chaque étape. Le plugin n'en lit que le nom
+et l'identifiant, et c'est suffisant : pour le lancer, le robot ne reçoit que cet
+identifiant et déroule lui-même le reste, exactement comme depuis l'application.
+
+Deux façons de faire, comme pour les pièces : la commande dédiée
+**Raccourci : Ménage du soir**, ou la commande générique `lancer_raccourci` avec
+
+```
+Ménage du soir
+32
+```
+
+Le contenu d'un raccourci se modifie dans l'application, et nulle part ailleurs.
+La liste est relue avec l'entretien et les statistiques — toutes les trente
+minutes par défaut — et tout de suite par le bouton **Sonder les capacités** de
+la fiche du robot : c'est celui qu'on presse après avoir créé un raccourci.
+
+Pendant son exécution, `etat` vaut « Raccourci » et `type_tache` le signale
+aussi ; **Pause**, **Reprendre**, **Arrêter** et **Retourner à la station**
+agissent comme sur n'importe quel nettoyage.
+
 ## Nettoyer une ou plusieurs pièces
 
 Il y a deux façons de faire, et elles coexistent volontairement.
@@ -500,6 +535,40 @@ chaque pièce sont ceux **réglés pour cette pièce dans l'application DreameHo
 lus dans la carte. Le plugin ne les impose pas : l'application reste l'endroit où
 l'on décide que la cuisine se lave et que la chambre s'aspire. L'ordre de passage
 entre les pièces se règle lui aussi dans l'application.
+
+Un quatrième champ, facultatif lui aussi, fixe le niveau d'eau ou d'humidité de
+la serpillière, de 1 à 3 : `Cuisine | 1 | 2 | 3`.
+
+## La tuile du tableau de bord
+
+Sur le tableau de bord, le robot s'affiche dans une tuile compacte, en
+cartouches :
+
+- **Robot** et **Batterie** : ce qu'il fait, l'avancement pendant un nettoyage,
+  l'activité de la station, et l'erreur s'il y en a une.
+- **Réglages du prochain nettoyage** : mode, puissance et humidité (ou niveau
+  d'eau). Un réglage part au robot dès qu'il est choisi. Celui que le mode rend
+  sans objet est grisé : l'humidité en aspiration seule, la puissance en lavage
+  seul.
+- **Lancer avec ces réglages** : tout le logement, ou une pièce choisie dans la
+  liste. La pièce est nettoyée avec la puissance et l'humidité affichées, et non
+  avec le réglage par pièce de l'application.
+- **Programme de l'application** : un raccourci choisi dans la liste, puis
+  **Lancer programme**. Un programme applique ses propres réglages.
+- **Pendant le nettoyage** : pause ou reprise, arrêt, retour à la station,
+  localisation.
+- **Voir la carte** : ouvre la carte dans une fenêtre. À l'ouverture, le robot
+  est prié de déposer une carte à jour ; pendant un nettoyage, la demande est
+  renouvelée toutes les cinq secondes environ, et l'on voit le robot se déplacer.
+  Ce suivi n'a lieu que fenêtre ouverte, et demande un compte administrateur :
+  les autres voient la dernière carte connue.
+
+Le mobile garde la présentation du coeur. Pour la retrouver aussi sur le tableau
+de bord, décochez **Template de widget** dans la configuration avancée de
+l'équipement.
+
+Les icônes des réglages viennent de Tasshack/dreame-vacuum (licence MIT), voir
+`core/img/NOTICE.md`.
 
 ## Nettoyer une zone
 

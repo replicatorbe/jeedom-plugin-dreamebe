@@ -78,6 +78,15 @@ try {
         unautorizedInDemo();
         $robot = $getRobot('id');
         $supported = $robot->probe();
+        /* Les raccourcis se relisent au même moment : c'est le bouton qu'on
+         * presse après en avoir créé un dans l'application. Leur échec ne doit
+         * pas faire passer le sondage pour raté. */
+        try {
+            $robot->refreshShortcuts();
+        } catch (Throwable $e) {
+            log::add('dreamebe', 'info', $robot->getHumanName()
+                     . ' : raccourcis non relus (' . $e->getMessage() . ')');
+        }
         $robot->createCommands();
         ajax::success(array('count' => count($supported), 'supported' => $supported));
     }
@@ -104,7 +113,9 @@ try {
         /* Le verdict compte : une carte partielle, absente ou illisible ne
          * produit pas d'image, et annoncer « carte à jour » juste au-dessus
          * d'un « aucune carte » serait se contredire dans la même page. */
-        $rendered = $robot->refreshMap();
+        /* Avec fresh=1, le robot est prié de déposer une carte complète avant
+         * la lecture : c'est le suivi en direct de la tuile. */
+        $rendered = $robot->refreshMap(init('fresh') == 1);
         ajax::success(array(
             'rendered' => (bool) $rendered,
             'url' => dreamebe::mapUrl($robot->getId()) . '&t=' . time(),

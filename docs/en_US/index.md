@@ -444,6 +444,36 @@ room names separated by commas. It exists so that a scenario can enumerate them
 without their names being hard-coded in it: the day a room is renamed in the
 application, the scenario follows.
 
+### One command per shortcut
+
+For each shortcut built in the DreameHome application, an action command
+`shortcut::<identifier>`, named **Raccourci : *shortcut name***. They appear on
+the first read, follow a rename, and go away when the shortcut is deleted in the
+application.
+
+To these are added `raccourcis` ("Shortcuts"), an info command returning the
+names separated by commas, and `lancer_raccourci` ("Start a shortcut"), an action
+command that expects a name or an identifier.
+
+## Starting an application shortcut
+
+A shortcut is a cleaning programme saved in the application: rooms, order,
+settings of each step. The plugin only reads its name and identifier, and that is
+enough: to start it, the robot receives that identifier alone and runs the rest
+itself, exactly as it does from the application.
+
+Two ways, as for rooms: the dedicated command, or the generic `lancer_raccourci`
+command with
+
+```
+Evening clean
+32
+```
+
+What a shortcut does is edited in the application, and nowhere else. The list is
+read again along with maintenance and statistics — every thirty minutes by
+default — and at once by the **Probe capabilities** button on the robot's page.
+
 ## Cleaning one or more rooms
 
 There are two ways to do this, and they coexist on purpose.
