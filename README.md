@@ -31,6 +31,8 @@ un compte Mi Home sera refusé à la connexion.
 - **Nettoyage par pièce**, soit par une commande dédiée à chaque pièce, soit par
   une commande générique qui accepte des identifiants ou des noms de pièces.
 - **Nettoyage par zone**, en millimètres dans le repère de la carte.
+- **Raccourcis de l'application** : chaque programme enregistré dans DreameHome
+  devient une commande, que le robot déroule comme depuis l'application.
 - **Suivi** : état, statut, batterie, erreurs — avec les avertissements de la
   station distingués des pannes du robot — durée, surface et progression du
   nettoyage en cours, usure des consommables, date, durée et surface du dernier

@@ -110,6 +110,9 @@ class dreamebeSpec {
         'map_data'           => array(6, 1),
         'object_name'        => array(6, 3),
         'map_list'           => array(6, 8),
+
+        /* --- Raccourcis de l'application ------------------------------- */
+        'shortcuts'          => array(4, 48),  /* liste JSON, noms en base64 */
     );
 
     /*
@@ -232,6 +235,9 @@ class dreamebeSpec {
     const STATUS_ZONE_CLEANING = 19;
     const STATUS_SPOT_CLEANING = 20;
     const STATUS_FAST_MAPPING = 21;
+    /* Un raccourci de l'application : la cible est alors son identifiant, en
+     * chaîne nue, et non une description JSON. */
+    const STATUS_SHORTCUT = 25;
 
     /*
      * Ce qui vaut « le robot travaille ».
@@ -652,6 +658,45 @@ class dreamebeSpec {
         'r2416'  => 'X40 Ultra', 'r2449k' => 'X40 Ultra Complete',
         'r2253c' => 'L20 Ultra', 'r2253w' => 'L20 Ultra',
     );
+
+    /*
+     * La liste des raccourcis, telle que le robot la rend : un tableau JSON
+     * d'objets { id, name }, où le nom est en base64 — comme celui des pièces.
+     *
+     * Rend array(id => array('id' => …, 'name' => …)), dans l'ordre de
+     * l'application. Une entrée illisible est écartée sans perdre les autres,
+     * et une valeur qui n'est pas une liste rend null : « illisible » ne doit
+     * pas se confondre avec « aucun raccourci », qui rend un tableau vide.
+     */
+    public static function parseShortcuts($_raw) {
+        if (is_string($_raw)) {
+            if (trim($_raw) === '') {
+                return array();
+            }
+            $_raw = json_decode($_raw, true);
+        }
+        if (!is_array($_raw)) {
+            return null;
+        }
+        $shortcuts = array();
+        foreach ($_raw as $entry) {
+            if (!is_array($entry) || !isset($entry['id']) || (int) $entry['id'] <= 0) {
+                continue;
+            }
+            $id = (int) $entry['id'];
+            $name = '';
+            if (isset($entry['name']) && is_string($entry['name'])) {
+                $decoded = base64_decode($entry['name'], true);
+                $name = trim(($decoded !== false && mb_check_encoding($decoded, 'UTF-8'))
+                             ? $decoded : $entry['name']);
+            }
+            if ($name === '') {
+                $name = '#' . $id;
+            }
+            $shortcuts[$id] = array('id' => $id, 'name' => $name);
+        }
+        return $shortcuts;
+    }
 
     public static function modelName($_model) {
         $model = (string) $_model;

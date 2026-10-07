@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- **Application shortcuts.** Cleaning programmes saved in DreameHome become
+  commands: one per shortcut, plus `lancer_raccourci`, which accepts a name or an
+  identifier, and `raccourcis`, which lists them. The robot receives the
+  identifier alone and runs the programme itself. List read on X40 Ultra Complete.
+
 ## 0.1 — 2026-09-18
 
 First release.

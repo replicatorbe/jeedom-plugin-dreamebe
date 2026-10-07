@@ -1,5 +1,13 @@
 # Changelog
 
+## Non publié
+
+- **Raccourcis de l'application.** Les programmes de nettoyage enregistrés dans
+  DreameHome deviennent des commandes : une par raccourci (« Raccourci : … »),
+  plus `lancer_raccourci`, qui accepte un nom ou un identifiant, et `raccourcis`,
+  qui en rend la liste. Le robot ne reçoit que l'identifiant et déroule lui-même
+  le programme. Liste relevée sur X40 Ultra Complete.
+
 ## 0.1 — 18/09/2026
 
 Première version.

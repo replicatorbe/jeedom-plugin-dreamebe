@@ -78,6 +78,15 @@ try {
         unautorizedInDemo();
         $robot = $getRobot('id');
         $supported = $robot->probe();
+        /* Les raccourcis se relisent au même moment : c'est le bouton qu'on
+         * presse après en avoir créé un dans l'application. Leur échec ne doit
+         * pas faire passer le sondage pour raté. */
+        try {
+            $robot->refreshShortcuts();
+        } catch (Throwable $e) {
+            log::add('dreamebe', 'info', $robot->getHumanName()
+                     . ' : raccourcis non relus (' . $e->getMessage() . ')');
+        }
         $robot->createCommands();
         ajax::success(array('count' => count($supported), 'supported' => $supported));
     }

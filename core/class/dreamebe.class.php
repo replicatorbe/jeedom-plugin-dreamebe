@@ -77,6 +77,11 @@ class dreamebe extends eqLogic {
         if (strpos($_logicalId, 'room::') === 0) {
             return 1;
         }
+        /* Même raisonnement pour les raccourcis : leur nom vient de
+         * l'utilisateur, qui les a composés dans l'application. */
+        if (strpos($_logicalId, 'shortcut::') === 0) {
+            return 1;
+        }
         return in_array($_logicalId, self::$visibleByDefault, true) ? 1 : 0;
     }
 
@@ -419,7 +424,7 @@ class dreamebe extends eqLogic {
         foreach (dreamebeSpec::$properties as $name => $prop) {
             /* La carte n'est pas une valeur à afficher : elle a son propre
              * chemin, et la sonder ferait transiter des kilo-octets pour rien. */
-            if (in_array($name, array('map_data', 'object_name', 'map_list'), true)) {
+            if (in_array($name, array('map_data', 'object_name', 'map_list', 'shortcuts'), true)) {
                 continue;
             }
             $candidates[$name] = $prop;
@@ -910,6 +915,14 @@ class dreamebe extends eqLogic {
                 log::add('dreamebe', 'info', $this->getHumanName()
                          . ' : entretien et statistiques non relus (' . $e->getMessage() . ')');
             }
+            /* Séparés : ils ne changent que quand on les édite dans
+             * l'application, et leur lecture ne doit rien coûter au reste. */
+            try {
+                $this->refreshShortcuts();
+            } catch (Throwable $e) {
+                log::add('dreamebe', 'info', $this->getHumanName()
+                         . ' : raccourcis non relus (' . $e->getMessage() . ')');
+            }
         }
 
         if (config::byKey('map_enable', 'dreamebe', 1) == 1
@@ -1129,6 +1142,40 @@ class dreamebe extends eqLogic {
         $this->save(true);
         $this->createRoomCommands();
         log::add('dreamebe', 'info', $this->getHumanName() . ' : ' . count($rooms) . ' pièce(s) reconnue(s).');
+        return true;
+    }
+
+    public function shortcuts() {
+        $shortcuts = $this->getConfiguration('shortcuts', array());
+        return is_array($shortcuts) ? $shortcuts : array();
+    }
+
+    /*
+     * Va chercher les raccourcis composés dans l'application.
+     *
+     * Le robot en rend la liste — identifiant et nom — dans une propriété, et
+     * rien de plus : ce que fait un raccourci reste dans l'application. Cela
+     * suffit, puisque le lancer ne demande que son identifiant.
+     */
+    public function refreshShortcuts() {
+        $shortcuts = dreamebeSpec::parseShortcuts($this->mapProperty('shortcuts'));
+        /* Illisible ou sans réponse : on garde ce qu'on savait, plutôt que de
+         * retirer des commandes sur une lecture manquée. */
+        if ($shortcuts === null) {
+            return false;
+        }
+        if ($shortcuts == $this->shortcuts()) {
+            return true;
+        }
+
+        $this->setConfiguration('shortcuts', $shortcuts);
+        $this->setConfiguration('shortcuts_at', time());
+        /* Enregistrement direct, comme pour les pièces : seules les commandes
+         * de raccourcis ont pu changer. */
+        $this->save(true);
+        $this->createShortcutCommands();
+        log::add('dreamebe', 'info', $this->getHumanName() . ' : ' . count($shortcuts)
+                 . ' raccourci(s) reconnu(s).');
         return true;
     }
 
@@ -1474,6 +1521,19 @@ class dreamebe extends eqLogic {
     }
 
     /*
+     * Lance un raccourci de l'application, avec tout ce qu'il contient : pièces,
+     * ordre, réglages par étape. Le robot reçoit le seul identifiant, et c'est
+     * lui qui déroule le reste — rien n'est reconstitué ici.
+     */
+    public function commandStartShortcut($_id) {
+        $id = (int) $_id;
+        if (!isset($this->shortcuts()[$id])) {
+            throw new Exception(__('Raccourci inconnu :', __FILE__) . ' ' . $_id);
+        }
+        return $this->startCustom(dreamebeSpec::STATUS_SHORTCUT, (string) $id);
+    }
+
+    /*
      * Le mécanisme commun aux nettoyages ciblés : une action qui reçoit le mode
      * de départ dans une propriété, et la description de la cible dans une
      * autre, sous forme de CHAÎNE JSON — pas d'objet.
@@ -1772,6 +1832,8 @@ class dreamebe extends eqLogic {
                       array('order' => 70));
         $this->addCmd('nettoyer_zone', 'Nettoyer une zone', 'action', 'message',
                       array('order' => 71));
+        $this->addCmd('lancer_raccourci', 'Lancer un raccourci', 'action', 'message',
+                      array('order' => 72));
 
         /* --- Entretien ------------------------------------------------- */
         $order = 80;
@@ -1861,6 +1923,10 @@ class dreamebe extends eqLogic {
         $this->addCmd('pieces', 'Pièces', 'info', 'string', array('order' => 199));
 
         $this->createRoomCommands();
+
+        /* Même chose pour les raccourcis de l'application. */
+        $this->addCmd('raccourcis', 'Raccourcis', 'info', 'string', array('order' => 399));
+        $this->createShortcutCommands();
         $this->pruneCommands();
     }
 
@@ -1879,7 +1945,8 @@ class dreamebe extends eqLogic {
      * 1. on ne touche qu'aux commandes portant notre marque, donc jamais à
      *    celles que l'utilisateur a ajoutées lui-même ;
      * 2. les commandes de pièces ont leur propre élagage, dans
-     *    createRoomCommands(), qui seul sait quelles pièces existent encore ;
+     *    createRoomCommands(), qui seul sait quelles pièces existent encore —
+     *    et de même celles des raccourcis, dans createShortcutCommands() ;
      * 3. une commande qui a DÉJÀ porté une valeur n'est jamais supprimée.
      *
      * Ce dernier point protège contre le scénario qui ferait le plus de dégâts :
@@ -1897,7 +1964,8 @@ class dreamebe extends eqLogic {
         }
         foreach ($this->getCmd() as $cmd) {
             $logicalId = $cmd->getLogicalId();
-            if ($logicalId === '' || strpos($logicalId, 'room::') === 0) {
+            if ($logicalId === '' || strpos($logicalId, 'room::') === 0
+                || strpos($logicalId, 'shortcut::') === 0) {
                 continue;
             }
             if ($cmd->getConfiguration('managed', 0) != 1) {
@@ -1976,6 +2044,45 @@ class dreamebe extends eqLogic {
             }
             $id = (int) substr($cmd->getLogicalId(), 6);
             if (!isset($rooms[$id])) {
+                $cmd->remove();
+            }
+        }
+    }
+
+    /*
+     * Une commande par raccourci de l'application, sur le modèle des pièces :
+     * « Raccourci : Ménage du soir » se glisse dans un scénario sans qu'il
+     * faille en retenir l'identifiant.
+     */
+    public function createShortcutCommands() {
+        $shortcuts = $this->shortcuts();
+        $order = 400;
+        /* Deux raccourcis peuvent porter le même nom, et Jeedom impose des noms
+         * de commande uniques par équipement : même dédoublonnage que pour les
+         * pièces, pour la même raison. */
+        $pris = array();
+        $noms = array();
+        foreach ($shortcuts as $shortcut) {
+            $nom = 'Raccourci : ' . $shortcut['name'];
+            if (isset($pris[$nom])) {
+                $pris[$nom]++;
+                $nom .= ' (' . $pris[$nom] . ')';
+            } else {
+                $pris[$nom] = 1;
+            }
+            $this->addCmd('shortcut::' . $shortcut['id'], $nom, 'action', 'other', array('order' => $order++));
+            $noms[] = $shortcut['name'];
+        }
+        $this->checkAndUpdateCmd('raccourcis', implode(', ', $noms));
+
+        /* Un raccourci supprimé dans l'application laisserait une commande que
+         * le robot refuserait. */
+        foreach ($this->getCmd('action') as $cmd) {
+            if (strpos($cmd->getLogicalId(), 'shortcut::') !== 0) {
+                continue;
+            }
+            $id = (int) substr($cmd->getLogicalId(), 10);
+            if (!isset($shortcuts[$id])) {
                 $cmd->remove();
             }
         }
@@ -2145,6 +2252,10 @@ class dreamebeCmd extends cmd {
         if (strpos($logicalId, 'room::') === 0) {
             return $eqLogic->commandCleanRooms(array((int) substr($logicalId, 6)));
         }
+        /* Un raccourci de l'application. */
+        if (strpos($logicalId, 'shortcut::') === 0) {
+            return $eqLogic->commandStartShortcut((int) substr($logicalId, 10));
+        }
         if (strpos($logicalId, 'raz_') === 0) {
             foreach (dreamebeSpec::$consumables as $siid => $consumable) {
                 if ($logicalId === 'raz_' . $consumable[0]) {
@@ -2196,6 +2307,8 @@ class dreamebeCmd extends cmd {
                 return self::cleanRooms($eqLogic, self::argument($_options));
             case 'nettoyer_zone':
                 return self::cleanZone($eqLogic, self::argument($_options));
+            case 'lancer_raccourci':
+                return $eqLogic->commandStartShortcut(self::shortcutId($eqLogic, self::argument($_options)));
         }
         throw new Exception(__('Commande non gérée :', __FILE__) . ' ' . $logicalId);
     }
@@ -2277,6 +2390,25 @@ class dreamebeCmd extends cmd {
         $repeats = isset($parts[0]) && trim($parts[0]) !== '' ? (int) trim($parts[0]) : 1;
         $suction = isset($parts[1]) && trim($parts[1]) !== '' ? (int) trim($parts[1]) : null;
         return $_eqLogic->commandCleanRooms($rooms, $repeats, $suction);
+    }
+
+    /* Un identifiant ou un nom, comme pour les pièces : « 32 » autant que
+     * « Ménage du soir ». */
+    private static function shortcutId($_eqLogic, $_argument) {
+        $token = trim((string) $_argument);
+        if ($token === '') {
+            throw new Exception(__('Indiquez le raccourci à lancer, par son nom ou son identifiant.', __FILE__));
+        }
+        $shortcuts = $_eqLogic->shortcuts();
+        if (ctype_digit($token) && isset($shortcuts[(int) $token])) {
+            return (int) $token;
+        }
+        foreach ($shortcuts as $shortcut) {
+            if (mb_strtolower($shortcut['name']) === mb_strtolower($token)) {
+                return $shortcut['id'];
+            }
+        }
+        throw new Exception(__('Raccourci inconnu :', __FILE__) . ' ' . $token);
     }
 
     private static function cleanZone($_eqLogic, $_argument) {

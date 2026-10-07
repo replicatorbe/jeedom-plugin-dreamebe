@@ -800,6 +800,26 @@ verifie('pièces de la carte sélectionnée', count($parsee['maps'][0]['segments
 $enBase64 = dreamebeMap::parseMapList(base64_encode($liste));
 verifie('liste enveloppée en base64 acceptée', count($enBase64['maps']), 1);
 
+echo "\n== Raccourcis de l'application ==\n";
+
+$raccourcis = dreamebeSpec::parseShortcuts(json_encode(array(
+    array('id' => 32, 'name' => base64_encode('Ménage du soir')),
+    array('id' => 33, 'name' => base64_encode('Repas ')),
+    array('name' => base64_encode('sans identifiant')),
+    array('id' => 34),
+)));
+verifie('entrée sans identifiant écartée sans perdre les autres', count($raccourcis), 3);
+verifie('nom de raccourci décodé du base64', $raccourcis[32]['name'], 'Ménage du soir');
+verifie('espaces de bord retirés du nom', $raccourcis[33]['name'], 'Repas');
+verifie('raccourci sans nom désigné par son identifiant', $raccourcis[34]['name'], '#34');
+verifie('ordre de l\'application conservé', array_keys($raccourcis), array(32, 33, 34));
+verifie('liste déjà décodée acceptée',
+        count(dreamebeSpec::parseShortcuts(array(array('id' => 40, 'name' => 'U2Fsb24=')))), 1);
+verifie('chaîne vide : aucun raccourci', dreamebeSpec::parseShortcuts(''), array());
+verifie('valeur illisible distinguée de l\'absence de raccourci',
+        dreamebeSpec::parseShortcuts('pas du JSON'), null);
+verifie('propriété absente : illisible', dreamebeSpec::parseShortcuts(null), null);
+
 /* ====================================================================== *
  * Bilan
  * ====================================================================== */

@@ -460,6 +460,41 @@ des noms de pièces séparés par des virgules. Elle existe pour qu'un scénario
 puisse les énumérer sans que leurs noms soient écrits en dur dans son code : le
 jour où une pièce est renommée dans l'application, le scénario suit.
 
+### Une commande par raccourci
+
+Pour chaque raccourci composé dans l'application DreameHome, une commande
+d'action `shortcut::<identifiant>`, nommée **Raccourci : *nom du raccourci***.
+Elles apparaissent à la première lecture, se mettent à jour quand un raccourci
+est renommé, et disparaissent quand il est supprimé dans l'application.
+
+S'y ajoutent `raccourcis` (« Raccourcis »), commande d'information qui rend la
+liste des noms séparés par des virgules, et `lancer_raccourci` (« Lancer un
+raccourci »), commande d'action qui attend un nom ou un identifiant.
+
+## Lancer un raccourci de l'application
+
+Un raccourci est un programme de nettoyage enregistré dans l'application :
+pièces, ordre de passage, réglages de chaque étape. Le plugin n'en lit que le nom
+et l'identifiant, et c'est suffisant : pour le lancer, le robot ne reçoit que cet
+identifiant et déroule lui-même le reste, exactement comme depuis l'application.
+
+Deux façons de faire, comme pour les pièces : la commande dédiée
+**Raccourci : Ménage du soir**, ou la commande générique `lancer_raccourci` avec
+
+```
+Ménage du soir
+32
+```
+
+Le contenu d'un raccourci se modifie dans l'application, et nulle part ailleurs.
+La liste est relue avec l'entretien et les statistiques — toutes les trente
+minutes par défaut — et tout de suite par le bouton **Sonder les capacités** de
+la fiche du robot : c'est celui qu'on presse après avoir créé un raccourci.
+
+Pendant son exécution, `etat` vaut « Raccourci » et `type_tache` le signale
+aussi ; **Pause**, **Reprendre**, **Arrêter** et **Retourner à la station**
+agissent comme sur n'importe quel nettoyage.
+
 ## Nettoyer une ou plusieurs pièces
 
 Il y a deux façons de faire, et elles coexistent volontairement.
