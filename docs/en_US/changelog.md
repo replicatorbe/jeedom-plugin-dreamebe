@@ -1,5 +1,36 @@
 # Changelog
 
+## 0.2 — 2026-09-23
+
+**The account**
+
+- A rejected account suspends automatic polling for one hour, instead of
+  retrying every minute and risking an account lockout. A message reports it,
+  the Health page shows when the next attempt is due, and **Test the account**
+  bypasses the wait.
+- An outage or rate limit on Dreame's side (HTTP 429 or 5xx) is no longer
+  mistaken for rejected credentials, and no longer discards the session token.
+
+**The map**
+
+- The maps folder is closed with `Require all denied`. The former `Deny from
+  all` rule gave way to Jeedom's root `.htaccess`, which allows every PNG, and
+  left floor plans readable without a session. A robot's map is deleted with
+  its device.
+- An unchanged map is not redrawn: its address stays the same, and open tiles
+  no longer reload it on every poll. The image is written aside then renamed,
+  never served half-written, and a map that inflates abnormally is rejected
+  instead of exhausting memory.
+- Unreadable rooms no longer prevent the map from being refreshed, and
+  unchanged rooms no longer re-save the device and its commands.
+
+**Lighter**
+
+- The cycle only asks the cloud for the robot list when one of them is due,
+  instead of every minute.
+- A poll no longer rebuilds the whole tile: only the values that change are
+  pushed to the dashboard.
+
 ## 0.1 — 2026-09-18
 
 First release.
@@ -21,12 +52,6 @@ not supported.
 - Several robots on one account become as many independent devices.
 - If the server reports that the account lives in another region, the plugin
   corrects the setting by itself.
-- A rejected account suspends automatic polling for one hour, instead of
-  retrying every minute and risking an account lockout. A message reports it,
-  the Health page shows when the next attempt is due, and **Test the account**
-  bypasses the wait.
-- An outage or rate limit on Dreame's side (HTTP 429 or 5xx) is no longer
-  mistaken for rejected credentials, and no longer discards the session token.
 
 **What the robot can do**
 
@@ -90,17 +115,8 @@ not supported.
 - Full decoding of the robot's maps: this is the only place where room names
   exist, and therefore the prerequisite for room cleaning.
 - A deliberately plain PNG rendering — floor per room, walls, robot and dock —
-  cached on disk and served only to authenticated Jeedom users. The maps
-  folder is closed with `Require all denied`: the former `Deny from all` rule
-  gave way to Jeedom's root `.htaccess`, which allows every PNG, and left floor
-  plans readable without a session. A robot's map is deleted with its device.
+  cached on disk and served only to authenticated Jeedom users.
 - Robot position and heading in the map's coordinate system.
-- An unchanged map is not redrawn: its address stays the same, and open tiles
-  no longer reload it on every poll. The image is written aside then renamed,
-  never served half-written, and a map that inflates abnormally is rejected
-  instead of exhausting memory.
-- Unreadable rooms no longer prevent the map from being refreshed, and
-  unchanged rooms no longer re-save the device and its commands.
 
 **Under the hood**
 
@@ -116,10 +132,6 @@ not supported.
   warning, which displayed "Niveau daspiration". Eleven labels were reworded, and
   the test suite now rejects any name that would contain one. The internal
   identifiers did not change.
-- The cycle only asks the cloud for the robot list when one of them is due,
-  instead of every minute.
-- A poll no longer rebuilds the whole tile: only the values that change are
-  pushed to the dashboard.
 
 Protocol studied from Tasshack/dreame-vacuum, TA2k/ioBroker.dreame and
 sandraschi/dreame-mcp, all three under the MIT licence. No code was copied from

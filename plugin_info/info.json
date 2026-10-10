@@ -1,7 +1,7 @@
 {
     "id": "dreamebe",
     "name": "Dreame",
-    "pluginVersion": "0.1",
+    "pluginVersion": "0.2",
     "description": {
         "fr_FR": "Pilotage des aspirateurs robots Dreame récents par le cloud DreameHome. Un compte, autant d'équipements Jeedom que de robots : état, batterie, erreurs, démarrage, pause, retour à la station, nettoyage par pièce, puissance d'aspiration et niveau d'eau, informations d'entretien des consommables, le tout utilisable dans les scénarios.",
         "en_US": "Control of recent Dreame robot vacuums through the DreameHome cloud. One account, one Jeedom device per robot: state, battery, errors, start, pause, return to dock, room cleaning, suction power and water level, consumable maintenance figures, all usable in scenarios."

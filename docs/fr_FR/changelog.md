@@ -1,5 +1,36 @@
 # Changelog
 
+## 0.2 — 23/09/2026
+
+**Le compte**
+
+- Un compte refusé suspend l'interrogation automatique pendant une heure, au
+  lieu de retenter chaque minute au risque de faire bloquer le compte. Un
+  message le signale, la page Santé indique l'heure du prochain essai, et
+  **Tester le compte** passe outre.
+- Une panne ou une limitation de débit côté Dreame (HTTP 429 ou 5xx) n'est plus
+  prise pour un refus d'identifiants, et ne fait plus jeter le jeton de session.
+
+**La carte**
+
+- Le dossier des cartes est fermé par `Require all denied`. L'ancienne règle
+  `Deny from all` cédait devant celle du `.htaccess` racine de Jeedom, qui
+  autorise tous les PNG, et laissait les plans lisibles sans session. La carte
+  d'un robot est effacée avec son équipement.
+- Une carte inchangée n'est pas redessinée : son adresse reste la même, et les
+  tuiles ouvertes ne la rechargent plus à chaque relecture. L'image est écrite
+  à côté puis renommée, jamais servie à moitié écrite, et une carte anormale à
+  la décompression est refusée au lieu d'épuiser la mémoire.
+- Des pièces illisibles n'empêchent plus la carte d'être relue, et des pièces
+  inchangées ne réenregistrent plus l'équipement ni ses commandes.
+
+**Plus léger**
+
+- Le cycle ne demande la liste des robots au cloud que si l'un d'eux est à
+  relire, au lieu de chaque minute.
+- Une lecture ne reconstruit plus toute la tuile : seules les valeurs qui
+  changent sont poussées au tableau de bord.
+
 ## 0.1 — 18/09/2026
 
 Première version.
@@ -21,12 +52,6 @@ protocole et ne sont pas gérés.
 - Plusieurs robots sur un compte donnent autant d'équipements indépendants.
 - Si le serveur signale que le compte vit dans une autre région, le plugin
   corrige le réglage tout seul.
-- Un compte refusé suspend l'interrogation automatique pendant une heure, au
-  lieu de retenter chaque minute au risque de faire bloquer le compte. Un
-  message le signale, la page Santé indique l'heure du prochain essai, et
-  **Tester le compte** passe outre.
-- Une panne ou une limitation de débit côté Dreame (HTTP 429 ou 5xx) n'est plus
-  prise pour un refus d'identifiants, et ne fait plus jeter le jeton de session.
 
 **Ce que le robot sait faire**
 
@@ -97,17 +122,8 @@ protocole et ne sont pas gérés.
   noms des pièces, et donc la condition du nettoyage par pièce.
 - Rendu d'une image PNG volontairement sobre — sol par pièce, murs, robot et
   station — mise en cache sur le disque et servie aux seuls utilisateurs
-  authentifiés de Jeedom. Le dossier des cartes est fermé par `Require all
-  denied` : l'ancienne règle `Deny from all` cédait devant celle du `.htaccess`
-  racine de Jeedom, qui autorise tous les PNG, et laissait les plans lisibles
-  sans session. La carte d'un robot est effacée avec son équipement.
+  authentifiés de Jeedom.
 - Position et orientation du robot dans le repère de la carte.
-- Une carte inchangée n'est pas redessinée : son adresse reste la même, et les
-  tuiles ouvertes ne la rechargent plus à chaque relecture. L'image est écrite
-  à côté puis renommée, jamais servie à moitié écrite, et une carte anormale à
-  la décompression est refusée au lieu d'épuiser la mémoire.
-- Des pièces illisibles n'empêchent plus la carte d'être relue, et des pièces
-  inchangées ne réenregistrent plus l'équipement ni ses commandes.
 
 **Sous le capot**
 
@@ -123,10 +139,6 @@ protocole et ne sont pas gérés.
   sans prévenir, ce qui affichait « Niveau daspiration ». Onze libellés ont été
   reformulés, et le jeu d'essai refuse désormais tout nom qui en contiendrait.
   Les identifiants internes n'ont pas changé.
-- Le cycle ne demande la liste des robots au cloud que si l'un d'eux est à
-  relire, au lieu de chaque minute.
-- Une lecture ne reconstruit plus toute la tuile : seules les valeurs qui
-  changent sont poussées au tableau de bord.
 
 Protocole relevé sur Tasshack/dreame-vacuum, TA2k/ioBroker.dreame et
 sandraschi/dreame-mcp, tous trois sous licence MIT. Aucun code n'en a été
